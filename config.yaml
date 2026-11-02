@@ -1,0 +1,246 @@
+character:
+  default_scale: 0.65
+  entry_animation: slide_fade
+  blink_interval_min: 3.0
+  blink_interval_max: 6.0
+  entry_duration: 0.5
+
+video:
+  fps: 30
+  landscape: [1920, 1080]
+  portrait: [1080, 1920]
+  portrait_only: true        # only render 9:16 (faster + cheaper)
+  transition_duration: 0.4
+  transition_type: fade
+
+subtitle:
+  font: "C:/Windows/Fonts/segoeuib.ttf"
+  font_size_landscape: 52
+  font_size_portrait: 46
+  max_chars_per_line: 40
+  max_words_per_chunk: 7       # max words per subtitle chunk
+  max_lines: 2
+  bg_color: [0, 0, 0, 160]
+  text_color: [255, 255, 255, 255]
+  outline_color: [0, 0, 0, 255]
+  outline_width: 3
+  padding_x: 24
+  padding_y: 14
+  border_radius: 12
+  landscape_y_ratio: 0.86
+  portrait_y_ratio: 0.88
+
+  # Emotion-based styling
+  emotion_styles:
+    neutral:
+      text_color: [255, 255, 255, 255]
+      bg_color: [0, 0, 0, 160]
+      scale: 1.0
+    happy:
+      text_color: [255, 235, 80, 255]    # warm yellow
+      bg_color: [30, 20, 0, 170]
+      scale: 1.0
+    excited:
+      text_color: [255, 160, 30, 255]    # orange
+      bg_color: [40, 15, 0, 180]
+      scale: 1.1                          # slightly bigger
+    angry:
+      text_color: [255, 70, 70, 255]     # red
+      bg_color: [50, 0, 0, 185]
+      scale: 1.15                         # bigger = louder
+    sad:
+      text_color: [130, 180, 255, 255]   # soft blue
+      bg_color: [0, 10, 40, 170]
+      scale: 0.95
+    serious:
+      text_color: [220, 220, 220, 255]   # cool grey-white
+      bg_color: [10, 10, 10, 190]
+      scale: 1.0
+    confused:
+      text_color: [200, 160, 255, 255]   # soft purple
+      bg_color: [20, 0, 40, 170]
+      scale: 1.0
+    relatable:
+      text_color: [255, 200, 100, 255]   # warm amber
+      bg_color: [35, 20, 0, 175]
+      scale: 1.05
+    warning:
+      text_color: [255, 80, 80, 255]     # red-orange
+      bg_color: [50, 5, 0, 185]
+      scale: 1.1
+
+llm:
+  model: gpt-4o
+  temperature: 0.8
+  max_scenes: 14
+  target_duration: 60
+  language: en               # output language: en | id
+  niche: science_facts       # song_meaning | education | science_facts
+  # Disable AI-generated scenes (costs OpenAI image tokens)
+  max_generated_scenes: 0
+
+gemini_image:
+  model: imagen-3.0-generate-002
+  reference_pose: "sheva_waving and say hi"  # default reference for img2img
+  output_dir: "poses/generated"
+  aspect_ratio: "1:1"
+  number_of_images: 1
+  # Character description injected into every prompt for consistency
+  character_description: >-
+    anime-style girl named Sheva, short dark purple hair with blue highlights,
+    fair skin, black hoodie with tribal print, black cargo pants with chain,
+    black combat boots, ear piercings, cross necklace, goth-alt aesthetic,
+    clean anime illustration style, white background
+
+tts:
+  # ChatterboxTurboTTS settings
+  voice_prompt_path: "sound reference/voice_sample.wav"   # ✅ v2.0: Sheva voice reference (WAV — no conversion needed)
+
+  # Pacing & naturalness (global defaults — overridden per-scene by emotion_params)
+  temperature: 0.7          # 0.05–2.0 | lower = more stable & slower pace
+  top_p: 0.95               # nucleus sampling
+  top_k: 1000                # default model (jangan < 200, bisa jadi noise!)
+  repetition_penalty: 1.1   # > 1.0 avoids word repetition (jangan > 1.2 = noise)
+  norm_loudness: true       # normalize to -27 LUFS for consistent volume
+
+  # Per-scene emotion parameter overrides (applied when script scene has tts_emotion field)
+  # exaggeration & cfg_weight: only used if ChatterboxTurboTTS supports them (auto-detected)
+  emotion_params:
+    neutral:
+      temperature: 0.70
+      top_p: 0.95
+      exaggeration: 0.50
+      cfg_weight: 0.50
+    excited:
+      temperature: 0.90
+      top_p: 0.98
+      exaggeration: 0.80
+      cfg_weight: 0.40
+    serious:
+      temperature: 0.50
+      top_p: 0.90
+      exaggeration: 0.30
+      cfg_weight: 0.60
+    sad:
+      temperature: 0.60
+      top_p: 0.92
+      exaggeration: 0.40
+      cfg_weight: 0.70
+    angry:
+      temperature: 0.85
+      top_p: 0.97
+      exaggeration: 0.90
+      cfg_weight: 0.30
+    confused:
+      temperature: 0.75
+      top_p: 0.95
+      exaggeration: 0.50
+      cfg_weight: 0.50
+    happy:
+      temperature: 0.85
+      top_p: 0.97
+      exaggeration: 0.70
+      cfg_weight: 0.40
+    relatable:
+      temperature: 0.80
+      top_p: 0.96
+      exaggeration: 0.60
+      cfg_weight: 0.50
+    warning:
+      temperature: 0.70
+      top_p: 0.95
+      exaggeration: 0.70
+      cfg_weight: 0.40
+
+whisper:
+  model: whisper-1
+  language: en
+  response_format: srt
+
+pose_map:
+  # ── Full-body poses ────────────────────────────────────────
+  "sheva_waving and say hi":
+    type: fullbody
+    mood: [friendly, intro, greeting, happy]
+    has_blink: false
+  "confidence (smirk)":
+    type: fullbody
+    mood: [confident, smug, cool, assertive, proud]
+    has_blink: false
+  "sheva_peace":
+    type: fullbody
+    mood: [happy, outro, peaceful, satisfied, closing, chill]
+    has_blink: false
+  "facepalm":
+    type: fullbody
+    mood: [frustrated, relatable, cringe, disbelief, shocked]
+    has_blink: false
+
+  # ── Half-body poses ────────────────────────────────────────
+  "halfbody explaining":
+    type: halfbody
+    mood: [explaining, neutral, informative, talking, presenting]
+    has_blink: true
+    blink_pair: "halfbody explaining (blinking)"
+  "halfbody explaining (blinking)":
+    type: halfbody
+    mood: []
+    is_blink_frame: true
+    blink_frame_of: "halfbody explaining"
+  "halfbody (armcrossed)":
+    type: halfbody
+    mood: [serious, firm, warning, stern, assertive]
+    has_blink: false
+  "sheva_confused_v2":
+    type: halfbody
+    mood: [confused, questioning, unsure, curious, surprised]
+    has_blink: false
+  "sheva_thinking":
+    type: halfbody
+    mood: [thinking, pondering, planning, processing, considering]
+    has_blink: false
+  "sheva_explaining":
+    type: halfbody
+    mood: [explaining, detailed, technical, step-by-step]
+    has_blink: false
+
+  # ── Half-body (cropped) variants ───────────────────────────
+  "confidence (smirk) (half body)":
+    type: halfbody_cropped
+    mood: [confident, smug, cool, assertive, proud]
+    has_blink: false
+  "facepalm (half body)":
+    type: halfbody_cropped
+    mood: [frustrated, relatable, cringe, disbelief, shocked]
+    has_blink: false
+  "sheva_confused_v2 (half body)":
+    type: halfbody_cropped
+    mood: [confused, questioning, unsure, curious, surprised]
+    has_blink: false
+  "sheva_explaining (half body)":
+    type: halfbody_cropped
+    mood: [explaining, detailed, technical, step-by-step]
+    has_blink: false
+  "sheva_peace(half body)":
+    type: halfbody_cropped
+    mood: [happy, outro, peaceful, satisfied, closing, chill]
+    has_blink: false
+  "sheva_thinking (half body)":
+    type: halfbody_cropped
+    mood: [thinking, pondering, planning, processing, considering]
+    has_blink: false
+  "sheva_waving and say hi (half body)":
+    type: halfbody_cropped
+    mood: [friendly, intro, greeting, happy, welcoming]
+    has_blink: false
+
+background_map:
+  kamar:
+    file: "kamar.jpg"
+    vibe: [casual, intimate, personal, night, indoor]
+  kampus:
+    file: "kampus.jpg"
+    vibe: [academic, outdoor, daytime, university, public]
+  rooftop:
+    file: "rooftop.jpeg"
+    vibe: [dramatic, moody, night, reflective, emotional]

@@ -1,0 +1,51 @@
+.env
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+
+# Output videos & temp frames
+output/landscape/frames/
+output/portrait/frames/
+audio/temp/
+
+# Large generated files (keep folder structure but not content)
+*.mp4
+*.mp3
+*.wav
+!audio/.gitkeep
+!output/.gitkeep
+!subtitles/.gitkeep
+!scripts/.gitkeep
+
+# TTS checkpoint (re-generated per session)
+audio/*_checkpoint.json
+
+# HuggingFace model cache & virtual env (very large, NOT for git)
+TTS/hf-cache/
+TTS/chatterbox-model/
+TTS/chatterbox-env/
+
+# User-uploaded assets
+assets/uploads/
+
+# Generated scene images (Gemini output)
+poses/generated/
+
+# Subtitle & script output (generated artifacts)
+subtitles/*.srt
+scripts/*.json
+
+# OS stuff
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+
+# Chatterbox source code (embedded git repo ? install via pip saja)
+TTS/chatterbox/

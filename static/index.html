@@ -1,0 +1,1894 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sheva Animation Studio</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --bg2: #111118;
+      --bg3: #1a1a25;
+      --bg4: #22223a;
+      --border: rgba(120, 100, 220, 0.18);
+      --border2: rgba(120, 100, 220, 0.38);
+      --purple: #a78bfa;
+      --purple2: #7c3aed;
+      --blue: #60a5fa;
+      --pink: #f472b6;
+      --green: #34d399;
+      --yellow: #fbbf24;
+      --red: #f87171;
+      --orange: #fb923c;
+      --text: #e2e8f0;
+      --text2: #94a3b8;
+      --text3: #64748b;
+      --glass: rgba(120, 100, 220, 0.06);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      background:
+        radial-gradient(ellipse 700px 500px at 15% 10%, rgba(124, 58, 237, .12) 0%, transparent 70%),
+        radial-gradient(ellipse 400px 400px at 85% 85%, rgba(96, 165, 250, .07) 0%, transparent 70%),
+        radial-gradient(ellipse 300px 300px at 65% 25%, rgba(244, 114, 182, .06) 0%, transparent 70%);
+    }
+
+    #app {
+      position: relative;
+      z-index: 1;
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 24px 18px
+    }
+
+    /* header */
+    header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 32px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--border)
+    }
+
+    .logo {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--purple2), var(--pink));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      flex-shrink: 0;
+      box-shadow: 0 0 20px rgba(124, 58, 237, .3)
+    }
+
+    header h1 {
+      font-size: 20px;
+      font-weight: 800
+    }
+
+    header h1 span {
+      background: linear-gradient(135deg, var(--purple), var(--pink));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent
+    }
+
+    .hbadge {
+      margin-left: auto;
+      padding: 3px 10px;
+      border-radius: 20px;
+      background: rgba(167, 139, 250, .1);
+      border: 1px solid var(--border2);
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--purple);
+      letter-spacing: .5px;
+      text-transform: uppercase
+    }
+
+    /* tabs */
+    .tabs {
+      display: flex;
+      gap: 3px;
+      margin-bottom: 28px;
+      background: var(--bg2);
+      padding: 4px;
+      border-radius: 13px;
+      border: 1px solid var(--border)
+    }
+
+    .tab {
+      flex: 1;
+      padding: 9px;
+      border-radius: 9px;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      background: transparent;
+      color: var(--text3);
+      transition: all .2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px
+    }
+
+    .tab:hover {
+      color: var(--text2)
+    }
+
+    .tab.active {
+      background: var(--bg4);
+      color: var(--purple);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, .3)
+    }
+
+    /* cards */
+    .card {
+      background: var(--glass);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 24px;
+      margin-bottom: 18px;
+      transition: border-color .2s
+    }
+
+    .card:hover {
+      border-color: var(--border2)
+    }
+
+    .card-title {
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--purple);
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px
+    }
+
+    /* step 1 */
+    .hero-title {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      line-height: 1.2;
+      margin-bottom: 6px
+    }
+
+    .hero-title span {
+      background: linear-gradient(135deg, var(--purple), var(--blue));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent
+    }
+
+    .hero-sub {
+      font-size: 13px;
+      color: var(--text2);
+      margin-bottom: 22px
+    }
+
+    /* song inputs */
+    .song-inputs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 14px
+    }
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px
+    }
+
+    .input-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .6px;
+      color: var(--text3)
+    }
+
+    .song-input {
+      padding: 13px 16px;
+      border-radius: 12px;
+      background: var(--bg2);
+      border: 2px solid var(--border);
+      font-family: inherit;
+      font-size: 14px;
+      color: var(--text);
+      transition: border-color .2s, box-shadow .2s;
+      outline: none
+    }
+
+    .song-input:focus {
+      border-color: var(--purple2);
+      box-shadow: 0 0 0 4px rgba(124, 58, 237, .1)
+    }
+
+    .song-input::placeholder {
+      color: var(--text3)
+    }
+
+    .aspect-input {
+      grid-column: 1/-1
+    }
+
+    /* suggestions */
+    .suggestions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 20px
+    }
+
+    .sug {
+      padding: 5px 12px;
+      border-radius: 18px;
+      border: 1px solid var(--border);
+      background: var(--bg2);
+      font-size: 11px;
+      color: var(--text2);
+      cursor: pointer;
+      transition: all .15s
+    }
+
+    .sug:hover {
+      border-color: var(--purple);
+      color: var(--purple);
+      background: rgba(167, 139, 250, .08)
+    }
+
+    /* btns */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 12px 24px;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .3px;
+      transition: all .2s;
+      text-decoration: none
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--purple2), #4f46e5);
+      color: white;
+      box-shadow: 0 4px 14px rgba(124, 58, 237, .4)
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(124, 58, 237, .5)
+    }
+
+    .btn-primary:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+      transform: none
+    }
+
+    .btn-success {
+      background: linear-gradient(135deg, #059669, #047857);
+      color: white;
+      box-shadow: 0 4px 14px rgba(5, 150, 105, .3)
+    }
+
+    .btn-success:hover {
+      transform: translateY(-1px)
+    }
+
+    .btn-success:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+      transform: none
+    }
+
+    .btn-ghost {
+      background: var(--bg3);
+      border: 1px solid var(--border2);
+      color: var(--text2)
+    }
+
+    .btn-ghost:hover {
+      border-color: var(--purple);
+      color: var(--purple)
+    }
+
+    .btn-sm {
+      padding: 7px 14px;
+      font-size: 11px;
+      border-radius: 8px
+    }
+
+    .btn-danger-sm {
+      background: rgba(248, 113, 113, .1);
+      border: 1px solid rgba(248, 113, 113, .3);
+      color: var(--red);
+      padding: 5px 10px;
+      font-size: 11px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: inherit;
+      font-weight: 600;
+      transition: all .15s
+    }
+
+    .btn-danger-sm:hover {
+      background: rgba(248, 113, 113, .2)
+    }
+
+    /* scene list */
+    .scene-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0
+    }
+
+    .scene-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      transition: border-color .2s
+    }
+
+    .scene-card:hover {
+      border-color: var(--border2)
+    }
+
+    .scene-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 13px
+    }
+
+    .scene-num {
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      flex-shrink: 0;
+      background: linear-gradient(135deg, var(--purple2), #4f46e5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 800;
+      color: white
+    }
+
+    .badges {
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
+      flex: 1
+    }
+
+    .badge {
+      padding: 2px 9px;
+      border-radius: 18px;
+      font-size: 10px;
+      font-weight: 700
+    }
+
+    .bp {
+      background: rgba(167, 139, 250, .15);
+      color: var(--purple)
+    }
+
+    .bb {
+      background: rgba(96, 165, 250, .15);
+      color: var(--blue)
+    }
+
+    .be {
+      background: rgba(244, 114, 182, .15);
+      color: var(--pink)
+    }
+
+    .bd {
+      background: rgba(52, 211, 153, .15);
+      color: var(--green)
+    }
+
+    .narr-area {
+      width: 100%;
+      padding: 10px 14px;
+      border-radius: 9px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      font-family: inherit;
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.6;
+      resize: vertical;
+      min-height: 66px;
+      outline: none;
+      transition: border-color .2s
+    }
+
+    .narr-area:focus {
+      border-color: var(--purple)
+    }
+
+    .scene-controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 7px;
+      margin-top: 10px
+    }
+
+    .sel-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 3px
+    }
+
+    .sel-label {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      color: var(--text3)
+    }
+
+    .scene-select {
+      padding: 7px 10px;
+      border-radius: 7px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      font-family: inherit;
+      font-size: 11px;
+      color: var(--text2);
+      outline: none;
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+      padding-right: 24px
+    }
+
+    .scene-select:focus {
+      border-color: var(--purple)
+    }
+
+    .bg-thumb {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 6px;
+      padding: 4px 7px;
+      border-radius: 7px;
+      background: rgba(251, 146, 60, .08);
+      border: 1px solid rgba(251, 146, 60, .25)
+    }
+
+    .bg-thumb img {
+      width: 22px;
+      height: 22px;
+      border-radius: 4px;
+      object-fit: cover;
+      flex-shrink: 0
+    }
+
+    .bg-thumb span {
+      font-size: 10px;
+      color: var(--orange);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1
+    }
+
+    .bg-thumb button {
+      background: none;
+      border: none;
+      color: var(--text3);
+      cursor: pointer;
+      font-size: 12px;
+      padding: 0 2px;
+      flex-shrink: 0
+    }
+
+    .bg-thumb button:hover {
+      color: var(--red)
+    }
+
+    /* ── Asset insertion ── */
+    .insert-zone {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 0;
+      position: relative;
+      cursor: default
+    }
+
+    .insert-zone::before,
+    .insert-zone::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+      margin: 0 10px
+    }
+
+    .insert-btn {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 12px;
+      border-radius: 20px;
+      border: 1px dashed var(--border2);
+      background: transparent;
+      color: var(--text3);
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .2s;
+      white-space: nowrap
+    }
+
+    .insert-btn:hover {
+      border-color: var(--purple);
+      color: var(--purple);
+      background: rgba(167, 139, 250, .07)
+    }
+
+    .asset-card {
+      background: var(--bg3);
+      border: 1px solid rgba(251, 146, 60, .3);
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin: 4px 0;
+      display: flex;
+      align-items: center;
+      gap: 12px
+    }
+
+    .asset-thumb {
+      width: 48px;
+      height: 48px;
+      border-radius: 8px;
+      object-fit: cover;
+      background: var(--bg4);
+      flex-shrink: 0
+    }
+
+    .asset-thumb-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 8px;
+      background: var(--bg4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      flex-shrink: 0
+    }
+
+    .asset-info {
+      flex: 1;
+      min-width: 0
+    }
+
+    .asset-name {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--orange);
+      margin-bottom: 4px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap
+    }
+
+    .asset-dur-row {
+      display: flex;
+      align-items: center;
+      gap: 8px
+    }
+
+    .asset-dur-row label {
+      font-size: 10px;
+      color: var(--text3)
+    }
+
+    .dur-input {
+      width: 60px;
+      padding: 3px 7px;
+      border-radius: 6px;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      font-family: inherit;
+      font-size: 11px;
+      color: var(--text);
+      outline: none
+    }
+
+    /* upload modal */
+    #upload-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .7);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center
+    }
+
+    #upload-modal.open {
+      display: flex
+    }
+
+    .modal-box {
+      background: var(--bg2);
+      border: 1px solid var(--border2);
+      border-radius: 18px;
+      padding: 28px;
+      width: 420px;
+      max-width: 90vw
+    }
+
+    .modal-title {
+      font-size: 15px;
+      font-weight: 800;
+      margin-bottom: 6px
+    }
+
+    .modal-sub {
+      font-size: 12px;
+      color: var(--text3);
+      margin-bottom: 20px
+    }
+
+    .drop-zone {
+      border: 2px dashed var(--border2);
+      border-radius: 12px;
+      padding: 36px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all .2s;
+      position: relative
+    }
+
+    .drop-zone:hover,
+    .drop-zone.drag {
+      border-color: var(--purple);
+      background: rgba(124, 58, 237, .05)
+    }
+
+    .drop-zone input[type=file] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer
+    }
+
+    .drop-icon {
+      font-size: 36px;
+      margin-bottom: 8px
+    }
+
+    .drop-text {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 4px
+    }
+
+    .drop-sub {
+      font-size: 11px;
+      color: var(--text3)
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 16px
+    }
+
+    .upload-progress {
+      margin-top: 12px;
+      display: none
+    }
+
+    .upload-bar-wrap {
+      height: 5px;
+      background: var(--bg3);
+      border-radius: 3px;
+      overflow: hidden
+    }
+
+    .upload-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--purple2), var(--pink));
+      border-radius: 3px;
+      width: 0;
+      transition: width .3s
+    }
+
+    /* progress */
+    .prog-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 22px
+    }
+
+    .prog-step {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: var(--bg2);
+      border: 1px solid var(--border)
+    }
+
+    .sicon {
+      width: 34px;
+      height: 34px;
+      border-radius: 9px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      flex-shrink: 0
+    }
+
+    .sicon.pending {
+      background: var(--bg3);
+      color: var(--text3)
+    }
+
+    .sicon.active {
+      background: rgba(167, 139, 250, .2);
+      animation: pulse 1.5s ease-in-out infinite
+    }
+
+    .sicon.done {
+      background: rgba(52, 211, 153, .15);
+      color: var(--green)
+    }
+
+    .sicon.error {
+      background: rgba(248, 113, 113, .15);
+      color: var(--red)
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        box-shadow: 0 0 0 0 rgba(167, 139, 250, .3)
+      }
+
+      50% {
+        box-shadow: 0 0 0 8px rgba(167, 139, 250, 0)
+      }
+    }
+
+    .sinfo {
+      flex: 1
+    }
+
+    .slabel {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text)
+    }
+
+    .sdetail {
+      font-size: 10px;
+      color: var(--text3);
+      margin-top: 2px
+    }
+
+    .prog-bar-wrap {
+      height: 5px;
+      background: var(--bg3);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-bottom: 8px
+    }
+
+    .prog-bar {
+      height: 100%;
+      border-radius: 3px;
+      transition: width .5s ease;
+      background: linear-gradient(90deg, var(--purple2), var(--pink))
+    }
+
+    .prog-pct {
+      text-align: right;
+      font-size: 11px;
+      color: var(--purple);
+      font-weight: 700;
+      margin-bottom: 18px
+    }
+
+    #log-area {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--text3);
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 10px;
+      max-height: 120px;
+      overflow-y: auto;
+      line-height: 1.9
+    }
+
+    /* output */
+    .out-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+      max-width: 400px;
+      margin: 0 auto
+    }
+
+    .out-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      text-align: center
+    }
+
+    .out-card h3 {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text2);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px
+    }
+
+    video {
+      width: 100%;
+      border-radius: 9px;
+      background: #000
+    }
+
+    .out-actions {
+      display: flex;
+      gap: 7px;
+      justify-content: center;
+      margin-top: 10px
+    }
+
+    /* history */
+    .hist-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 10px
+    }
+
+    .hist-item {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      transition: all .2s
+    }
+
+    .hist-item:hover {
+      border-color: var(--border2);
+      transform: translateY(-1px)
+    }
+
+    .hist-name {
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 5px
+    }
+
+    .hist-meta {
+      font-size: 10px;
+      color: var(--text3);
+      display: flex;
+      gap: 7px
+    }
+
+    /* misc */
+    .spin {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255, 255, 255, .2);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin .8s linear infinite
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg)
+      }
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 12px 18px;
+      border-radius: 10px;
+      background: var(--bg3);
+      border: 1px solid var(--border2);
+      color: var(--text);
+      font-size: 12px;
+      z-index: 200;
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all .3s;
+      max-width: 300px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, .5)
+    }
+
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1
+    }
+
+    .toast.success {
+      border-color: rgba(52, 211, 153, .5);
+      color: var(--green)
+    }
+
+    .toast.error {
+      border-color: rgba(248, 113, 113, .5);
+      color: var(--red)
+    }
+
+    .section-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 20px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border)
+    }
+
+    .empty {
+      text-align: center;
+      padding: 50px 20px;
+      color: var(--text3)
+    }
+
+    .empty-icon {
+      font-size: 44px;
+      margin-bottom: 10px
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app">
+    <header>
+      <div class="logo">🎬</div>
+      <div>
+        <h1><span>Sheva</span> Animation Studio</h1>
+        <div style="font-size:11px;color:var(--text3);margin-top:1px">Science facts & theories · Reels / Shorts</div>
+      </div>
+      <div class="hbadge" id="niche-badge">Science Facts</div>
+    </header>
+
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('create')" id="tab-create">🎵 Create Video</button>
+      <button class="tab" onclick="switchTab('history')" id="tab-history">📂 Past Videos</button>
+    </div>
+
+    <div id="pane-create">
+
+      <!-- Step 1: Topic Input (v2.0) -->
+      <div id="step-prompt">
+        <div class="card">
+          <div class="hero-title">Mind-blowing <span>Science &amp; Theories</span></div>
+          <div class="hero-sub" id="hero-sub">Enter any science topic and Sheva will break it down in the most mind-blowing way possible &#10024;</div>
+
+          <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap">
+            <div class="input-group" style="flex:1;min-width:160px">
+              <div class="input-label">&#128300; Niche</div>
+              <select class="song-input" id="sel-niche" onchange="onNicheChange()" style="padding:10px 14px;font-size:13px">
+                <option value="science_facts">&#128300; Science &amp; Theories</option>
+                <option value="song_meaning">&#127925; Song Meaning</option>
+                <option value="education">&#128218; Education / Tips</option>
+              </select>
+            </div>
+            <div class="input-group" style="flex:1;min-width:120px">
+              <div class="input-label">&#127760; Language</div>
+              <select class="song-input" id="sel-lang" style="padding:10px 14px;font-size:13px">
+                <option value="en">EN English</option>
+                <option value="id">ID Indonesian</option>
+              </select>
+            </div>
+            <div class="input-group" style="flex:1;min-width:180px">
+              <div class="input-label">&#127899; Voice Reference</div>
+              <div style="padding:10px 14px;border-radius:12px;background:var(--bg2);border:2px solid var(--border);font-size:12px;color:var(--green);display:flex;align-items:center;gap:7px">
+                <span>&#10003;</span> voice_sample.wav
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-bottom:16px">
+            <div class="sel-label" style="margin-bottom:8px;font-size:11px;color:var(--text3)">&#9889; Quick Ideas</div>
+            <div class="suggestions" id="suggestions-list"></div>
+          </div>
+
+          <div style="margin-bottom:14px">
+            <div class="input-label" style="margin-bottom:8px">&#128221; Topic</div>
+            <input class="song-input" id="inp-topic" type="text" placeholder="e.g. Why does time slow down near black holes?" style="width:100%" />
+          </div>
+
+          <div id="song-extras" style="display:none">
+            <div class="song-inputs" style="margin-bottom:14px">
+              <div class="input-group">
+                <div class="input-label">&#127925; Song Title</div>
+                <input class="song-input" id="inp-song" type="text" placeholder="e.g. Black Parade" oninput="buildSongTopic()" />
+              </div>
+              <div class="input-group">
+                <div class="input-label">&#127908; Artist</div>
+                <input class="song-input" id="inp-artist" type="text" placeholder="e.g. My Chemical Romance" oninput="buildSongTopic()" />
+              </div>
+              <div class="input-group aspect-input">
+                <div class="input-label">&#128173; Focus Angle <span style="color:var(--text3);font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></div>
+                <input class="song-input" id="inp-focus" type="text" placeholder="e.g. the hidden metaphors about sobriety" oninput="buildSongTopic()" />
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <button class="btn btn-primary" id="btn-generate" onclick="generateScript()">
+              <span>&#9889;</span> Generate Script
+            </button>
+            <span style="font-size:10px;color:var(--text3)">or press <kbd style="background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:1px 5px;font-size:9px">Ctrl+Enter</kbd></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: Script Review (v2.0) -->
+      <div id="step-review" style="display:none">
+        <div class="card">
+          <div class="card-title">&#128221; Review &amp; Edit Script</div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:18px">
+            Edit narration for each scene. Use the <strong style="color:var(--orange)">+</strong> buttons to insert
+            photos or video clips. Adjust <strong style="color:var(--pink)">&#127899; TTS Emotion</strong> to control voice delivery per scene.
+          </div>
+          <div class="scene-list" id="scene-list"></div>
+          <div class="section-actions">
+            <button class="btn btn-ghost" onclick="backToPrompt()">&larr; Edit Topic</button>
+            <button class="btn btn-success" id="btn-render" onclick="startRender()">&#127916; Render Video</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3: Rendering -->
+      <div id="step-rendering" style="display:none">
+        <div class="card">
+          <div class="card-title">⚙️ Rendering...</div>
+          <div class="prog-bar-wrap">
+            <div class="prog-bar" id="prog-bar" style="width:0%"></div>
+          </div>
+          <div class="prog-pct" id="prog-pct">0%</div>
+          <div class="prog-steps" id="prog-steps">
+            <div class="prog-step">
+              <div class="sicon pending" id="pstep-1-icon">🎙️</div>
+              <div class="sinfo">
+                <div class="slabel">Voice-Over (Chatterbox TTS)</div>
+                <div class="sdetail" id="pstep-1-detail">Waiting...</div>
+              </div>
+            </div>
+            <div class="prog-step">
+              <div class="sicon pending" id="pstep-2-icon">📝</div>
+              <div class="sinfo">
+                <div class="slabel">Subtitles (from script)</div>
+                <div class="sdetail" id="pstep-2-detail">Waiting...</div>
+              </div>
+            </div>
+            <div class="prog-step">
+              <div class="sicon pending" id="pstep-3-icon">🎥</div>
+              <div class="sinfo">
+                <div class="slabel">Render + Encode</div>
+                <div class="sdetail" id="pstep-3-detail">Waiting...</div>
+              </div>
+            </div>
+          </div>
+          <div id="log-area"></div>
+        </div>
+      </div>
+
+      <!-- Step 4: Done -->
+      <div id="step-done" style="display:none">
+        <div class="card">
+          <div class="card-title">🎉 Video Ready!</div>
+          <div id="out-grid" class="out-grid"></div>
+          <div style="margin-top:18px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <button class="btn btn-primary" onclick="newVideo()">➕ New Video</button>
+            <span style="font-size:10px;color:var(--text3);margin-left:auto">Tip: <kbd style="background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:1px 5px;font-size:9px">Ctrl+Shift+N</kbd> = new video</span>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /pane-create -->
+
+    <!-- History -->
+    <div id="pane-history" style="display:none">
+      <div class="card">
+        <div class="card-title">📂 Past Videos</div>
+        <div id="hist-grid" class="hist-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Upload Modal -->
+  <div id="upload-modal">
+    <div class="modal-box">
+      <div class="modal-title">📎 Insert Asset</div>
+      <div class="modal-sub">Add a photo or video clip that will play between scenes</div>
+      <div class="drop-zone" id="drop-zone" ondragover="doDragOver(event)" ondrop="doDrop(event)"
+        ondragleave="doDragLeave()">
+        <input type="file" id="file-input" accept="image/*,video/*" onchange="handleFileSelect(event)" />
+        <div class="drop-icon">📁</div>
+        <div class="drop-text">Drop file here or click to browse</div>
+        <div class="drop-sub">Supports JPG, PNG, GIF, MP4, MOV, MKV</div>
+      </div>
+      <div class="upload-progress" id="up-prog">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:6px">Uploading...</div>
+        <div class="upload-bar-wrap">
+          <div class="upload-bar" id="up-bar"></div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <!-- Hidden input used by the "Upload Custom..." background option -->
+  <input type="file" id="bg-file-input" accept="image/*" style="display:none" onchange="handleBgFileSelect(event)" />
+
+  <script>
+    // ── State ──────────────────────────────────────────────────────────────────
+    let cfg = {};
+    let currentScript = null;
+    let currentTopic = '';
+    let currentJobId = null;
+    let evtSrc = null;
+    // insertAssets: [{after_scene_idx, path, filename, type, duration, uid}]
+    let insertAssets = [];
+    let pendingInsertAfter = null;  // scene index waiting for upload
+
+    // ── Init ───────────────────────────────────────────────────────────────────
+    async function init() {
+      try {
+        const r = await fetch('/api/config');
+        cfg = await r.json();
+
+        // Restore saved niche/lang preferences
+        const savedNiche = localStorage.getItem('sheva_niche') || 'science_facts';
+        const savedLang  = localStorage.getItem('sheva_lang')  || 'en';
+        document.getElementById('sel-niche').value = savedNiche;
+        document.getElementById('sel-lang').value  = savedLang;
+        onNicheChange();  // update UI to match
+      } catch (e) { showToast('Config load failed', 'error'); }
+    }
+
+    // ── Tabs ───────────────────────────────────────────────────────────────────
+    function switchTab(name) {
+      ['create', 'history'].forEach(t => {
+        document.getElementById(`tab-${t}`).classList.toggle('active', t === name);
+        document.getElementById(`pane-${t}`).style.display = t === name ? '' : 'none';
+      });
+      if (name === 'history') loadHistory();
+    }
+
+    // ── Niche & Suggestions ─────────────────────────────────────────────────
+    const NICHE_SUGGESTIONS = {
+      science_facts: [
+        'Why does time slow near black holes?',
+        'The Fermi Paradox explained',
+        'What happens inside a black hole',
+        'Quantum entanglement is real',
+        'The universe might be a simulation',
+        'Dark matter: what we actually know',
+      ],
+      song_meaning: [
+        'Black Parade – My Chemical Romance',
+        'Heather – Conan Gray',
+        'Bohemian Rhapsody – Queen',
+        'Numb – Linkin Park',
+        'Exile – Taylor Swift',
+      ],
+      education: [
+        'How to stop procrastinating for real',
+        'Why your memory actually works',
+        '5 habits that silently drain energy',
+        'How to learn anything faster',
+      ],
+    };
+
+    const NICHE_HERO = {
+      science_facts: {
+        title: 'Mind-blowing <span>Science &amp; Theories</span>',
+        sub: 'Enter any science topic and Sheva will break it down in the most mind-blowing way possible ✨',
+        placeholder: 'e.g. Why does time slow down near black holes?',
+      },
+      song_meaning: {
+        title: 'Explain the meaning<br /><span>of any song</span>',
+        sub: 'Enter a song + artist and Sheva will break down the lyrics, themes & hidden meanings ✨',
+        placeholder: 'e.g. Explain the meaning of Black Parade by MCR',
+      },
+      education: {
+        title: 'Educational <span>Short Videos</span>',
+        sub: 'Enter any educational topic and Sheva will make it engaging and relatable ✨',
+        placeholder: 'e.g. How to stop procrastinating for real',
+      },
+    };
+
+    function onNicheChange() {
+      const niche = document.getElementById('sel-niche').value;
+      const hero = NICHE_HERO[niche] || NICHE_HERO.science_facts;
+
+      document.querySelector('.hero-title').innerHTML = hero.title;
+      document.getElementById('hero-sub').textContent = hero.sub.replace(/<[^>]+>/g, '');
+      document.getElementById('inp-topic').placeholder = hero.placeholder;
+
+      // Show/hide song-specific extras
+      document.getElementById('song-extras').style.display = niche === 'song_meaning' ? '' : 'none';
+
+      // Update header badge
+      const badges = { science_facts: '🔬 Science', song_meaning: '🎵 Song Meaning', education: '📚 Education' };
+      document.getElementById('niche-badge').textContent = badges[niche] || niche;
+
+      // Refresh suggestions
+      const suggs = NICHE_SUGGESTIONS[niche] || [];
+      const list = document.getElementById('suggestions-list');
+      list.innerHTML = suggs.map(s =>
+        `<div class="sug" onclick="setTopic('${s.replace(/'/g, "\\'")}")">${s}</div>`
+      ).join('');
+    }
+
+    function setTopic(text) {
+      document.getElementById('inp-topic').value = text;
+      currentTopic = text;
+    }
+
+    function buildSongTopic() {
+      const song = document.getElementById('inp-song').value.trim();
+      const artist = document.getElementById('inp-artist').value.trim();
+      const focus = document.getElementById('inp-focus').value.trim();
+      if (song && artist) {
+        const topic = `Explain the meaning of "${song}" by ${artist}` + (focus ? `. Focus: ${focus}` : '');
+        document.getElementById('inp-topic').value = topic;
+        currentTopic = topic;
+      }
+    }
+
+    // ── Step 1: Topic Input ────────────────────────────────────────────────────
+    function setSong(song, artist) {
+      document.getElementById('inp-song').value = song;
+      document.getElementById('inp-artist').value = artist;
+      buildSongTopic();
+    }
+
+    function buildTopic() {
+      // legacy — kept for compatibility
+      buildSongTopic();
+    }
+
+    async function generateScript() {
+      // Get topic from topic input (or built from song inputs)
+      const niche = document.getElementById('sel-niche').value;
+      const lang = document.getElementById('sel-lang').value;
+      currentTopic = document.getElementById('inp-topic').value.trim();
+
+      // For song niche, rebuild from song+artist fields if topic field is empty
+      if (!currentTopic && niche === 'song_meaning') buildSongTopic();
+      currentTopic = document.getElementById('inp-topic').value.trim();
+
+      if (!currentTopic) { showToast('Enter a topic first!', 'error'); return; }
+
+      const btn = document.getElementById('btn-generate');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spin"></span> Generating...';
+
+      // Save niche/lang settings to localStorage
+      localStorage.setItem('sheva_niche', niche);
+      localStorage.setItem('sheva_lang', lang);
+
+      try {
+        // Update server config for niche & language before generating
+        const r = await fetch('/api/generate-script', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ topic: currentTopic, niche, language: lang })
+        });
+        const data = await r.json();
+        if (data.error) throw new Error(data.error);
+        currentScript = data.script;
+        insertAssets = [];
+        // Auto-save to localStorage
+        localStorage.setItem('sheva_last_script', JSON.stringify({ script: currentScript, topic: currentTopic }));
+        showReview();
+        showToast(`Script ready! ${currentScript.scenes.length} scenes`, 'success');
+      } catch (e) {
+        showToast(`Error: ${e.message}`, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<span>⚡</span> Generate Script';
+      }
+    }
+
+    // ── Step 2: Review ─────────────────────────────────────────────────────────
+    function showReview() {
+      ['step-prompt', 'step-rendering', 'step-done'].forEach(id => {
+        document.getElementById(id).style.display = 'none';
+      });
+      document.getElementById('step-review').style.display = '';
+      renderSceneList();
+    }
+
+    function renderSceneList() {
+      const poses = Object.keys(cfg.poses || {}).filter(p => !cfg.poses[p].is_blink_frame);
+      const bgs = Object.keys(cfg.backgrounds || {});
+      const emotions = cfg.emotions || [];
+      const list = document.getElementById('scene-list');
+
+      let html = '';
+      currentScript.scenes.forEach((scene, i) => {
+        // Insert zone before first scene too? No — only between scenes
+        if (i > 0) {
+          html += _insertZoneHtml(i - 1);  // after scene i-1
+        }
+
+        // Check for asset already inserted after previous scene
+        // (assets are rendered inline, we'll inject them from JS)
+
+        const hasCustomBg = !!scene.custom_background_path;
+        const poseBadge = scene.pose ? scene.pose : '🚫 No Pose';
+        const bgBadge = hasCustomBg ? `📤 ${scene.custom_background_name || 'Custom'}` : (scene.background || 'AI');
+        const ttsEmo = scene.tts_emotion || 'neutral';
+        const subEmo = scene.subtitle_emotion || 'neutral';
+
+        // Word count & estimated duration live
+        const words = scene.narration.trim().split(/\s+/).filter(Boolean).length;
+        const estDur = (words / 140 * 60).toFixed(1);
+
+        // Emotion color map for TTS badge
+        const emoColors = {
+          neutral: 'var(--text2)', excited: 'var(--yellow)', serious: 'var(--blue)',
+          sad: '#93c5fd', angry: 'var(--red)', confused: 'var(--purple)',
+          happy: 'var(--green)', relatable: 'var(--orange)', warning: '#f97316',
+        };
+        const ttsColor = emoColors[ttsEmo] || 'var(--text2)';
+
+        html += `
+    <div class="scene-card" id="sc-${i}" style="margin-bottom:0;border-radius:${i === 0 ? '14px 14px' : '0'} ${i === currentScript.scenes.length - 1 ? '14px 14px' : '0'} ${i === 0 ? '0' : '0'}">
+      <div class="scene-header">
+        <div class="scene-num">${scene.id}</div>
+        <div class="badges">
+          <span class="badge bp">${poseBadge}</span>
+          <span class="badge bb">${bgBadge}</span>
+          <span class="badge be" style="background:rgba(244,114,182,.15);color:${ttsColor}" title="TTS Emotion">🎙️ ${ttsEmo}</span>
+          <span class="badge be" title="Subtitle Emotion">💬 ${subEmo}</span>
+          <span class="badge bd" id="dur-${i}">~${estDur}s · ${words}w</span>
+        </div>
+      </div>
+      <textarea class="narr-area" id="narr-${i}" oninput="syncScene(${i})">${scene.narration}</textarea>
+      <div class="scene-controls" style="grid-template-columns:1fr 1fr 1fr 1fr">
+        <div class="sel-wrap">
+          <div class="sel-label">Pose</div>
+          <select class="scene-select" id="pose-${i}" onchange="syncScene(${i})">
+            <option value=""${!scene.pose ? ' selected' : ''}>🚫 No Pose</option>
+            ${poses.map(p => `<option value="${p}"${p === scene.pose ? ' selected' : ''}>${p}</option>`).join('')}
+          </select>
+        </div>
+        <div class="sel-wrap">
+          <div class="sel-label">Background</div>
+          <select class="scene-select" id="bg-${i}" onchange="onBgSelectChange(${i})">
+            ${bgs.map(b => `<option value="${b}"${(!hasCustomBg && b === scene.background) ? ' selected' : ''}>${b}</option>`).join('')}
+            <option value="__custom__"${hasCustomBg ? ' selected' : ''}>📤 Upload Custom...</option>
+          </select>
+          <div id="bg-thumb-${i}"></div>
+        </div>
+        <div class="sel-wrap">
+          <div class="sel-label">🎙️ TTS Emotion</div>
+          <select class="scene-select" id="tts-emo-${i}" onchange="syncScene(${i})" style="border-color:${ttsColor}40">
+            ${(cfg.emotions || []).map(e => `<option value="${e}"${e === ttsEmo ? ' selected' : ''}>${e}</option>`).join('')}
+          </select>
+        </div>
+        <div class="sel-wrap">
+          <div class="sel-label">💬 Subtitle Emotion</div>
+          <select class="scene-select" id="emo-${i}" onchange="syncScene(${i})">
+            ${(cfg.emotions || []).map(e => `<option value="${e}"${e === subEmo ? ' selected' : ''}>${e}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+    </div>`;
+      });
+
+      // Insert zone after last scene
+      html += _insertZoneHtml(currentScript.scenes.length - 1);
+
+      list.innerHTML = html;
+
+      // Render existing inserted assets
+      insertAssets.forEach(a => _renderAssetCard(a));
+
+      // Render existing custom background thumbnails
+      currentScript.scenes.forEach((scene, i) => {
+        if (scene.custom_background_path) {
+          _showBgThumb(i, scene.custom_background_url || '', scene.custom_background_name || 'custom image');
+        }
+      });
+    }
+
+    function _insertZoneHtml(afterSceneIdx) {
+      return `
+  <div class="insert-zone" id="iz-${afterSceneIdx}">
+    <button class="insert-btn" onclick="openUploadModal(${afterSceneIdx})">
+      ＋ Insert clip / photo
+    </button>
+  </div>
+  <div id="asset-slot-${afterSceneIdx}"></div>`;
+    }
+
+    function syncScene(idx) {
+      const s = currentScript.scenes[idx];
+      s.narration = document.getElementById(`narr-${idx}`).value;
+
+      const poseVal = document.getElementById(`pose-${idx}`).value;
+      s.pose = poseVal || null;  // "" → No Pose
+
+      const bgVal = document.getElementById(`bg-${idx}`).value;
+      if (bgVal !== '__custom__') {
+        s.background = bgVal;
+        s.custom_background_path = null;
+        s.custom_background_name = null;
+        s.custom_background_url = null;
+      }
+
+      s.subtitle_emotion = document.getElementById(`emo-${idx}`).value;
+      s.tts_emotion = document.getElementById(`tts-emo-${idx}`).value;
+      s.generated_scene = null;
+
+      // Live update word count & estimated duration badge
+      const words = s.narration.trim().split(/\s+/).filter(Boolean).length;
+      const estDur = (words / 140 * 60).toFixed(1);
+      const durEl = document.getElementById(`dur-${idx}`);
+      if (durEl) durEl.textContent = `~${estDur}s · ${words}w`;
+
+      // Auto-save to localStorage
+      localStorage.setItem('sheva_last_script', JSON.stringify({ script: currentScript, topic: currentTopic }));
+    }
+
+    // ── Background: custom upload ─────────────────────────────────────────────
+    let pendingBgSceneIdx = null;
+
+    function onBgSelectChange(idx) {
+      const sel = document.getElementById(`bg-${idx}`);
+      if (sel.value === '__custom__') {
+        pendingBgSceneIdx = idx;
+        document.getElementById('bg-file-input').click();
+      } else {
+        syncScene(idx);
+        _clearBgThumb(idx);
+      }
+    }
+
+    async function handleBgFileSelect(e) {
+      const idx = pendingBgSceneIdx;
+      if (!e.target.files.length || idx === null) { e.target.value = ''; return; }
+      const file = e.target.files[0];
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const r = await fetch('/api/upload-asset', { method: 'POST', body: formData });
+        const data = await r.json();
+        if (data.error) throw new Error(data.error);
+
+        const s = currentScript.scenes[idx];
+        s.custom_background_path = data.path;
+        s.custom_background_name = data.filename;
+        s.custom_background_url = data.url;
+        s.background = null;
+
+        _showBgThumb(idx, data.url, data.filename);
+        showToast(`Custom background set for scene ${idx + 1}`, 'success');
+      } catch (err) {
+        showToast(`Upload failed: ${err.message}`, 'error');
+        renderSceneList();  // revert select back to previous state
+      } finally {
+        pendingBgSceneIdx = null;
+        e.target.value = '';
+      }
+    }
+
+    function _showBgThumb(idx, url, filename) {
+      const slot = document.getElementById(`bg-thumb-${idx}`);
+      if (!slot) return;
+      slot.innerHTML = `
+    <div class="bg-thumb">
+      ${url ? `<img src="${url}" alt=""/>` : ''}
+      <span>${filename}</span>
+      <button onclick="clearCustomBg(${idx})" title="Remove custom background">✕</button>
+    </div>`;
+    }
+
+    function _clearBgThumb(idx) {
+      const slot = document.getElementById(`bg-thumb-${idx}`);
+      if (slot) slot.innerHTML = '';
+    }
+
+    function clearCustomBg(idx) {
+      const s = currentScript.scenes[idx];
+      s.custom_background_path = null;
+      s.custom_background_name = null;
+      s.custom_background_url = null;
+      renderSceneList();
+    }
+
+    function backToPrompt() {
+      document.getElementById('step-prompt').style.display = '';
+      document.getElementById('step-review').style.display = 'none';
+    }
+
+    // ── Upload Modal ───────────────────────────────────────────────────────────
+    function openUploadModal(afterSceneIdx) {
+      pendingInsertAfter = afterSceneIdx;
+      document.getElementById('upload-modal').classList.add('open');
+      document.getElementById('up-prog').style.display = 'none';
+      document.getElementById('file-input').value = '';
+    }
+
+    function closeModal() {
+      document.getElementById('upload-modal').classList.remove('open');
+      pendingInsertAfter = null;
+    }
+
+    function doDragOver(e) { e.preventDefault(); document.getElementById('drop-zone').classList.add('drag'); }
+    function doDragLeave() { document.getElementById('drop-zone').classList.remove('drag'); }
+    function doDrop(e) {
+      e.preventDefault();
+      document.getElementById('drop-zone').classList.remove('drag');
+      const files = e.dataTransfer.files;
+      if (files.length) uploadAsset(files[0]);
+    }
+    function handleFileSelect(e) {
+      if (e.target.files.length) uploadAsset(e.target.files[0]);
+    }
+
+    async function uploadAsset(file) {
+      const progEl = document.getElementById('up-prog');
+      const barEl = document.getElementById('up-bar');
+      progEl.style.display = '';
+      barEl.style.width = '0%';
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        // Fake progress
+        let fakeP = 0;
+        const timer = setInterval(() => { fakeP = Math.min(fakeP + 10, 85); barEl.style.width = fakeP + '%'; }, 200);
+
+        const r = await fetch('/api/upload-asset', { method: 'POST', body: formData });
+        clearInterval(timer);
+        barEl.style.width = '100%';
+
+        const data = await r.json();
+        if (data.error) throw new Error(data.error);
+
+        // Add to insertAssets
+        const uid = Date.now();
+        const asset = {
+          uid,
+          after_scene_idx: pendingInsertAfter,
+          path: data.path,
+          filename: data.filename,
+          safe_filename: data.safe_filename,
+          type: data.type,
+          file_type: data.type,
+          duration: 3,
+          url: data.url,
+        };
+        insertAssets.push(asset);
+        _renderAssetCard(asset);
+        closeModal();
+        showToast(`Asset added after scene ${pendingInsertAfter + 1}`, 'success');
+      } catch (e) {
+        showToast(`Upload failed: ${e.message}`, 'error');
+        progEl.style.display = 'none';
+      }
+    }
+
+    function _renderAssetCard(asset) {
+      const slot = document.getElementById(`asset-slot-${asset.after_scene_idx}`);
+      if (!slot) return;
+
+      const isImg = asset.type === 'image';
+      const thumbHtml = isImg
+        ? `<img class="asset-thumb" src="${asset.url}" alt=""/>`
+        : `<div class="asset-thumb-icon">🎬</div>`;
+
+      const cardHtml = `
+  <div class="asset-card" id="asset-card-${asset.uid}">
+    ${thumbHtml}
+    <div class="asset-info">
+      <div class="asset-name">📎 ${asset.filename}</div>
+      <div class="asset-dur-row">
+        <label>Duration:</label>
+        <input class="dur-input" type="number" min="1" max="30" value="${asset.duration}"
+          onchange="updateAssetDuration(${asset.uid}, this.value)"/>
+        <span style="font-size:10px;color:var(--text3)">sec</span>
+      </div>
+    </div>
+    <button class="btn-danger-sm" onclick="removeAsset(${asset.uid})">✕ Remove</button>
+  </div>`;
+
+      slot.innerHTML = cardHtml;
+    }
+
+    function updateAssetDuration(uid, val) {
+      const a = insertAssets.find(x => x.uid === uid);
+      if (a) a.duration = parseFloat(val) || 3;
+    }
+
+    function removeAsset(uid) {
+      insertAssets = insertAssets.filter(x => x.uid !== uid);
+      const card = document.getElementById(`asset-card-${uid}`);
+      if (card) card.parentElement.innerHTML = '';
+      showToast('Asset removed');
+    }
+
+    // ── Step 3: Render ─────────────────────────────────────────────────────────
+    async function startRender() {
+      currentScript.scenes.forEach((_, i) => syncScene(i));
+
+      const btn = document.getElementById('btn-render');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spin"></span> Starting...';
+
+      try {
+        const r = await fetch('/api/render', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            script: currentScript,
+            topic: currentTopic,
+            insert_assets: insertAssets.map(a => ({
+              after_scene_idx: a.after_scene_idx,
+              path: a.path,
+              duration: a.duration,
+              file_type: a.file_type,
+            })),
+          })
+        });
+        const data = await r.json();
+        if (data.error) throw new Error(data.error);
+        currentJobId = data.job_id;
+        showRendering();
+        startSSE(currentJobId);
+      } catch (e) {
+        showToast(`Error: ${e.message}`, 'error');
+        btn.disabled = false;
+        btn.innerHTML = '🎬 Render Video';
+      }
+    }
+
+    function showRendering() {
+      ['step-prompt', 'step-review', 'step-done'].forEach(id => document.getElementById(id).style.display = 'none');
+      document.getElementById('step-rendering').style.display = '';
+      document.getElementById('prog-bar').style.width = '0%';
+      document.getElementById('prog-pct').textContent = '0%';
+      document.getElementById('log-area').innerHTML = '';
+      [1, 2, 3].forEach(n => {
+        document.getElementById(`pstep-${n}-icon`).className = 'sicon pending';
+        document.getElementById(`pstep-${n}-detail`).textContent = 'Waiting...';
+      });
+    }
+
+    function startSSE(jobId) {
+      if (evtSrc) evtSrc.close();
+      evtSrc = new EventSource(`/api/progress/${jobId}`);
+
+      evtSrc.addEventListener('step', e => {
+        const d = JSON.parse(e.data);
+        for (let i = 1; i < d.step; i++) document.getElementById(`pstep-${i}-icon`).className = 'sicon done';
+        document.getElementById(`pstep-${d.step}-icon`).className = 'sicon active';
+        document.getElementById(`pstep-${d.step}-detail`).textContent = d.label;
+        addLog(`[Step ${d.step}] ${d.label}`);
+      });
+
+      evtSrc.addEventListener('step_done', e => {
+        const d = JSON.parse(e.data);
+        document.getElementById(`pstep-${d.step}-icon`).className = 'sicon done';
+        document.getElementById(`pstep-${d.step}-detail`).textContent = d.label;
+        addLog(`✓ ${d.label}`);
+      });
+
+      evtSrc.addEventListener('progress', e => {
+        const d = JSON.parse(e.data);
+        const pct = Math.min(99, d.pct || 0);
+        document.getElementById('prog-bar').style.width = pct + '%';
+        document.getElementById('prog-pct').textContent = pct + '%';
+        if (d.detail) addLog(d.detail);
+      });
+
+      evtSrc.addEventListener('done', e => {
+        const d = JSON.parse(e.data);
+        evtSrc.close();
+        [1, 2, 3].forEach(n => document.getElementById(`pstep-${n}-icon`).className = 'sicon done');
+        document.getElementById('prog-bar').style.width = '100%';
+        document.getElementById('prog-pct').textContent = '100%';
+        addLog('🎉 Done!');
+        setTimeout(() => showDone(d), 600);
+      });
+
+      evtSrc.addEventListener('error', e => {
+        try {
+          const d = JSON.parse(e.data);
+          addLog(`ERROR: ${d.message}`);
+          showToast(`Failed: ${d.message}`, 'error');
+        } catch (_) { }
+        evtSrc.close();
+      });
+    }
+
+    function addLog(msg) {
+      const a = document.getElementById('log-area');
+      const l = document.createElement('div');
+      l.textContent = `${new Date().toLocaleTimeString()} › ${msg}`;
+      a.appendChild(l);
+      a.scrollTop = a.scrollHeight;
+    }
+
+    // ── Step 4: Done ───────────────────────────────────────────────────────────
+    function showDone(outputs) {
+      document.getElementById('step-rendering').style.display = 'none';
+      document.getElementById('step-done').style.display = '';
+
+      document.getElementById('out-grid').innerHTML = `
+    <div class="out-card">
+      <h3>📱 Portrait 9:16 <span style="font-size:9px;color:var(--text3)">Reels / Shorts</span></h3>
+      <video src="${outputs.portrait}" controls playsinline></video>
+      <div class="out-actions">
+        <a href="${outputs.portrait}" download class="btn btn-ghost btn-sm">⬇️ Download</a>
+      </div>
+    </div>
+  `;
+      showToast('Video ready! 🎉', 'success');
+    }
+
+    function newVideo() {
+      ['step-prompt'].forEach(id => document.getElementById(id).style.display = '');
+      ['step-review', 'step-rendering', 'step-done'].forEach(id => document.getElementById(id).style.display = 'none');
+      currentScript = null; currentTopic = ''; insertAssets = [];
+      // Clear all input fields
+      ['inp-topic', 'inp-song', 'inp-artist', 'inp-focus'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+      });
+      // Re-initialize niche UI
+      onNicheChange();
+    }
+
+    // ── History ────────────────────────────────────────────────────────────────
+    async function loadHistory() {
+      const r = await fetch('/api/outputs-list');
+      const videos = await r.json();
+      const grid = document.getElementById('hist-grid');
+
+      if (!videos.length) {
+        grid.innerHTML = '<div class="empty"><div class="empty-icon">🎬</div><div>No videos yet</div></div>';
+        return;
+      }
+
+      const portraits = videos.filter(v => v.orientation === 'portrait');
+      if (!portraits.length) {
+        grid.innerHTML = '<div class="empty"><div class="empty-icon">&#127909;</div><div>No portrait videos yet</div></div>';
+        return;
+      }
+      grid.innerHTML = portraits.map(v => `
+    <div class="hist-item">
+      <video src="${v.url}" style="width:100%;border-radius:9px;background:#000;margin-bottom:10px;max-height:180px;object-fit:contain" preload="metadata" muted playsinline
+        onmouseover="this.play()" onmouseout="this.pause();this.currentTime=0">
+      </video>
+      <div class="hist-name">${v.name}</div>
+      <div class="hist-meta"><span>&#128241; ${v.size_mb}MB</span><span>Portrait</span></div>
+      <div style="display:flex;gap:7px;margin-top:10px">
+        <a href="${v.url}" target="_blank" class="btn btn-ghost btn-sm">&#9654; Play</a>
+        <a href="${v.url}" download class="btn btn-ghost btn-sm">&#11015;&#65039; Download</a>
+      </div>
+    </div>
+  `).join('');
+    }
+
+    // ── Toast ──────────────────────────────────────────────────────────────────
+    function showToast(msg, type = '') {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = `toast show ${type}`;
+      setTimeout(() => t.className = 'toast', 3500);
+    }
+
+    // ── Keyboard Shortcuts ────────────────────────────────────────────────────
+    document.addEventListener('keydown', (e) => {
+      // Ctrl+Enter = Generate Script (on step-prompt)
+      if (e.ctrlKey && e.key === 'Enter') {
+        if (document.getElementById('step-prompt').style.display !== 'none') {
+          e.preventDefault();
+          generateScript();
+        }
+      }
+      // Ctrl+R = Render Video (on step-review)
+      if (e.ctrlKey && e.key === 'r') {
+        if (document.getElementById('step-review').style.display !== 'none') {
+          e.preventDefault();
+          startRender();
+        }
+      }
+      // Ctrl+Shift+N = New Video
+      if (e.ctrlKey && e.shiftKey && e.key === 'N') {
+        e.preventDefault();
+        newVideo();
+      }
+      // Escape = back to prompt (if on review)
+      if (e.key === 'Escape') {
+        if (document.getElementById('step-review').style.display !== 'none') {
+          backToPrompt();
+        }
+      }
+    });
+
+    init();
+  </script>
+</body>
+
+</html>
