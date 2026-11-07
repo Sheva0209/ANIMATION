@@ -10,6 +10,8 @@ v2.0 changes:
 
 import os
 import re
+import json
+import hashlib
 import time
 import yaml
 import inspect
@@ -198,6 +200,57 @@ def _get_emotion_kwargs(tts_emotion: str | None, emotion_params: dict, supports_
     return kwargs
 
 
+def _tight_params(tts_cfg: dict) -> dict:
+    """Dead-air trimming parameters (all overridable under `tts:` in config.yaml)."""
+    return {
+        "enabled":           bool(tts_cfg.get("trim_silence", True)),
+        "max_pause_ms":      int(tts_cfg.get("max_pause_ms", 450)),     # longer pauses are shortened to this
+        "edge_pad_ms":       int(tts_cfg.get("edge_pad_ms", 120)),      # quiet kept at scene start/end
+        "silence_offset_db": float(tts_cfg.get("silence_offset_db", 16)),  # "silence" = N dB below average loudness
+        "min_silence_ms":    200,
+        "speech_pad_ms":     60,                                        # safety margin so soft consonants are not clipped
+    }
+
+
+def _tighten_audio(seg: AudioSegment, p: dict) -> AudioSegment:
+    """
+    Remove dead air from one scene: trim leading/trailing silence and shorten long pauses.
+    Speech itself is never touched; if nothing can be detected the audio is returned unchanged.
+    """
+    from pydub.silence import detect_nonsilent
+
+    if len(seg) < 600 or seg.dBFS == float("-inf"):
+        return seg
+    thresh = seg.dBFS - p["silence_offset_db"]       # relative threshold: robust to loudness differences
+    spans = detect_nonsilent(seg, min_silence_len=p["min_silence_ms"], silence_thresh=thresh, seek_step=10)
+    if not spans:
+        return seg
+
+    pad, n = p["speech_pad_ms"], len(seg)
+    merged: list[list[int]] = []
+    for s, e in spans:
+        s, e = max(0, s - pad), min(n, e + pad)
+        if merged and s <= merged[-1][1]:
+            merged[-1][1] = max(merged[-1][1], e)
+        else:
+            merged.append([s, e])
+
+    edge, max_pause = p["edge_pad_ms"], p["max_pause_ms"]
+    out = seg[max(0, merged[0][0] - edge):merged[0][0]]
+    for i, (s, e) in enumerate(merged):
+        if i > 0:
+            prev_e = merged[i - 1][1]
+            gap = s - prev_e
+            if gap <= max_pause:
+                out += seg[prev_e:s]                              # natural pause: keep as is
+            else:
+                half = max_pause // 2                             # long pause: keep only its edges
+                out += seg[prev_e:prev_e + half].fade_out(8) + seg[s - half:s].fade_in(8)
+        out += seg[s:e]
+    out += seg[merged[-1][1]:merged[-1][1] + edge]
+    return out
+
+
 def generate_tts(script: dict, config: dict | None = None, safe_name: str | None = None) -> dict:
     """
     Generate TTS audio for each scene narration using ChatterboxTurboTTS.
@@ -249,81 +302,122 @@ def generate_tts(script: dict, config: dict | None = None, safe_name: str | None
             "warning":  {"temperature": 0.70, "top_p": 0.95, "exaggeration": 0.70, "cfg_weight": 0.40},
         }
 
-    # ── Model ─────────────────────────────────────────────────────────────────
-    model = _load_model()
-    supports_emotion = _check_turbo_emotion_support(model)
-
     # ── Output dirs ───────────────────────────────────────────────────────────
-    temp_dir = BASE_DIR / "audio" / "temp"
-    temp_dir.mkdir(parents=True, exist_ok=True)
+    cache_dir = BASE_DIR / "audio" / "cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    use_cache = bool(tts_cfg.get("use_cache", True))
+    tparams = _tight_params(tts_cfg)
+    tight_tag = hashlib.sha1(json.dumps(tparams, sort_keys=True).encode()).hexdigest()[:6]
 
     if safe_name is None:
         safe_name = re.sub(r"[^\w\s-]", "", script["title"]).strip().replace(" ", "_").lower()[:60]
 
+    # ── Voice reference signature (cache must change if the reference changes) ─
+    voice_sig = None
+    if voice_prompt_wav:
+        vp = Path(voice_prompt_wav)
+        st = vp.stat()
+        voice_sig = f"{vp.name}:{st.st_size}:{st.st_mtime_ns}"
+
+    # ── Plan every scene first: text + params -> cache key ────────────────────
+    plan = []
+    for scene in script["scenes"]:
+        narration   = scene["narration"].strip()
+        tts_emotion = scene.get("tts_emotion", "neutral")
+        processed   = preprocess_narration(narration)
+        key = _scene_cache_key(
+            processed, tts_emotion, emotion_params, tts_cfg, voice_sig,
+            global_top_k, repetition_penalty, norm_loudness,
+        )
+        plan.append({
+            "scene_id":    scene["id"],
+            "narration":   narration,
+            "tts_emotion": tts_emotion,
+            "processed":   processed,
+            "wav_path":    cache_dir / f"{key}.wav",
+        })
+
+    # ── Load the model ONLY if at least one scene is not cached ───────────────
+    missing = [p for p in plan if not (use_cache and p["wav_path"].exists())]
+    model = None
+    supports_emotion = False
+    if missing:
+        model = _load_model()
+        supports_emotion = _check_turbo_emotion_support(model)
+    else:
+        print("[TTS] All scenes found in cache -- model not loaded")
+
     scene_results     = []
     scene_offsets     = []
     current_offset_ms = 0
+    full_audio        = AudioSegment.empty()
+    generated_count   = 0
 
-    total_scenes = len(script["scenes"])
-    for i, scene in enumerate(script["scenes"]):
-        scene_id    = scene["id"]
-        narration   = scene["narration"].strip()
-        tts_emotion = scene.get("tts_emotion", "neutral")
+    total_scenes = len(plan)
+    for i, item in enumerate(plan):
+        scene_id    = item["scene_id"]
+        tts_emotion = item["tts_emotion"]
+        wav_path    = item["wav_path"]
 
-        # Save as WAV first (torchaudio output), then convert to MP3 via pydub
-        wav_path = temp_dir / f"{safe_name}_scene_{scene_id:02d}.wav"
-        mp3_path = temp_dir / f"{safe_name}_scene_{scene_id:02d}.mp3"
+        if use_cache and wav_path.exists():
+            print(f"[TTS] Scene {scene_id}/{total_scenes} [{tts_emotion}]: cached")
+        else:
+            print(f"[TTS] Scene {scene_id}/{total_scenes} [{tts_emotion}]: generating audio...")
+            emotion_kwargs = _get_emotion_kwargs(tts_emotion, emotion_params, supports_emotion)
+            kwargs: dict = dict(
+                text=item["processed"],
+                top_k=global_top_k,
+                repetition_penalty=repetition_penalty,
+                norm_loudness=norm_loudness,
+                **emotion_kwargs,
+            )
+            if voice_prompt_wav:
+                kwargs["audio_prompt_path"] = voice_prompt_wav
 
-        print(f"[TTS] Scene {scene_id}/{total_scenes} [{tts_emotion}]: generating audio...")
+            wav_tensor = model.generate(**kwargs)
+            import torchaudio as ta
+            # Write to a temp name first so a crash never leaves a half-written cache file
+            tmp_path = wav_path.with_name(wav_path.stem + ".tmp.wav")
+            ta.save(str(tmp_path), wav_tensor, model.sr)
+            os.replace(tmp_path, wav_path)
+            generated_count += 1
 
-        # ── Preprocess: inject natural pauses at commas/dashes ────────────────
-        processed = preprocess_narration(narration)
-
-        # ── Build emotion-specific kwargs ──────────────────────────────────────
-        emotion_kwargs = _get_emotion_kwargs(tts_emotion, emotion_params, supports_emotion)
-
-        kwargs: dict = dict(
-            text=processed,
-            top_k=global_top_k,
-            repetition_penalty=repetition_penalty,
-            norm_loudness=norm_loudness,
-            **emotion_kwargs,
-        )
-        if voice_prompt_wav:
-            kwargs["audio_prompt_path"] = voice_prompt_wav
-
-        # ── Generate ───────────────────────────────────────────────────────────
-        wav_tensor = model.generate(**kwargs)
-        import torchaudio as ta
-        ta.save(str(wav_path), wav_tensor, model.sr)
-
-        # ── Convert WAV -> MP3 (for consistency with rest of pipeline) ─────────
         seg = AudioSegment.from_wav(str(wav_path))
-        seg.export(str(mp3_path), format="mp3", bitrate="128k")
-        wav_path.unlink(missing_ok=True)   # clean up temp WAV
-
+        raw_ms = len(seg)
+        audio_path = wav_path
+        if tparams["enabled"]:
+            # The raw WAV stays untouched in the cache; the tightened copy is what the rest of the
+            # pipeline uses (durations, subtitles, Whisper alignment all follow THIS file).
+            tight_path = wav_path.with_name(f"{wav_path.stem}.t{tight_tag}.wav")
+            if not (use_cache and tight_path.exists()):
+                tmp_t = tight_path.with_name(tight_path.stem + ".tmp.wav")
+                _tighten_audio(seg, tparams).export(str(tmp_t), format="wav")
+                os.replace(tmp_t, tight_path)
+            seg = AudioSegment.from_wav(str(tight_path))
+            audio_path = tight_path
         duration_ms = len(seg)
         scene_results.append({
             "scene_id":    scene_id,
-            "path":        str(mp3_path),
+            "path":        str(audio_path),
             "duration_ms": duration_ms,
-            "narration":   narration,
+            "narration":   item["narration"],
             "tts_emotion": tts_emotion,
         })
         scene_offsets.append(current_offset_ms)
         current_offset_ms += duration_ms
+        full_audio += seg
 
-        print(f"[TTS] Scene {scene_id}: {duration_ms / 1000:.2f}s [{tts_emotion}] -> {mp3_path.name}")
+        if raw_ms - duration_ms >= 300:
+            print(f"[TTS] Scene {scene_id}: {raw_ms / 1000:.2f}s -> {duration_ms / 1000:.2f}s "
+                  f"(trimmed {(raw_ms - duration_ms) / 1000:.1f}s dead air) [{tts_emotion}]")
+        else:
+            print(f"[TTS] Scene {scene_id}: {duration_ms / 1000:.2f}s [{tts_emotion}]")
 
-    # ── Merge all scenes -> full audio ─────────────────────────────────────────
-    print("[TTS] Merging all scenes into full audio...")
-    full_audio = AudioSegment.empty()
-    for result in scene_results:
-        full_audio += AudioSegment.from_mp3(result["path"])
-
-    full_audio_path = BASE_DIR / "audio" / f"{safe_name}_full.mp3"
-    full_audio.export(str(full_audio_path), format="mp3", bitrate="128k")
-    print(f"[TTS] Full audio saved -> {full_audio_path} ({len(full_audio)/1000:.1f}s total)")
+    # ── Merge all scenes -> full audio (WAV: lossless, encoded once by FFmpeg) ─
+    full_audio_path = BASE_DIR / "audio" / f"{safe_name}_full.wav"
+    full_audio.export(str(full_audio_path), format="wav")
+    print(f"[TTS] Full audio saved -> {full_audio_path} ({len(full_audio)/1000:.1f}s total, "
+          f"{generated_count} new / {total_scenes - generated_count} cached)")
 
     return {
         "full_audio":        str(full_audio_path),
@@ -331,6 +425,29 @@ def generate_tts(script: dict, config: dict | None = None, safe_name: str | None
         "scene_offsets":     scene_offsets,
         "total_duration_ms": current_offset_ms,
     }
+
+
+def _scene_cache_key(processed, tts_emotion, emotion_params, tts_cfg, voice_sig,
+                     top_k, repetition_penalty, norm_loudness) -> str:
+    """
+    Hash everything that changes how ONE scene sounds: text, emotion + its params,
+    global sampling params and the voice reference. Editing one scene (or one
+    emotion's params) only invalidates the scenes it actually affects.
+    """
+    emo = tts_emotion if tts_emotion in emotion_params else "neutral"
+    payload = {
+        "text": processed,
+        "emotion": emo,
+        "emotion_params": emotion_params.get(emo, {}),
+        "temperature": tts_cfg.get("temperature"),
+        "top_p": tts_cfg.get("top_p"),
+        "top_k": top_k,
+        "repetition_penalty": repetition_penalty,
+        "norm_loudness": norm_loudness,
+        "voice": voice_sig,
+    }
+    blob = json.dumps(payload, sort_keys=True, ensure_ascii=False)
+    return hashlib.sha1(blob.encode("utf-8")).hexdigest()[:20]
 
 
 if __name__ == "__main__":

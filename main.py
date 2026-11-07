@@ -34,7 +34,7 @@ Examples:
         "topic",
         nargs="?",
         default=None,
-        help="Topic for the animation video (in Bahasa Indonesia)",
+        help="Topic for the animation video (language follows llm.language in config.yaml)",
     )
 
     # Optional overrides
@@ -95,8 +95,10 @@ def main():
             srt_path=args.srt,
         )
         print("\nDone! Check your output folder:")
-        print(f"   Landscape: {result['landscape']}")
-        print(f"   Portrait:  {result['portrait']}")
+        if result.get("landscape"):
+            print(f"   Landscape: {result['landscape']}")
+        if result.get("portrait"):
+            print(f"   Portrait:  {result['portrait']}")
 
     except KeyboardInterrupt:
         print("\nPipeline interrupted by user")

@@ -2,7 +2,7 @@
 pipeline.py
 Orchestrates the full animation pipeline:
   1. Script generation (LLM)
-  2. TTS voice-over (ElevenLabs)
+  2. TTS voice-over (Chatterbox, per-scene cache)
   3. Subtitle generation (from script -- no Whisper needed)
   4. Video rendering (Pillow + FFmpeg)
 """
@@ -84,7 +84,6 @@ def run_pipeline(
 
     # --- Step 2: TTS Generation ---
     print("\n--- STEP 2/4: TTS Voice-Over ---")
-    checkpoint_path = BASE_DIR / "audio" / f"{safe_name}_checkpoint.json"
 
     if skip_tts and audio_path and Path(audio_path).exists():
         print(f"[Pipeline] Using existing audio: {audio_path}")
@@ -107,28 +106,11 @@ def run_pipeline(
             "scene_offsets": offsets,
             "total_duration_ms": len(full_seg),
         }
-    elif checkpoint_path.exists():
-        try:
-            with open(checkpoint_path, "r", encoding="utf-8") as f:
-                cached = json.load(f)
-            if all(Path(sa["path"]).exists() for sa in cached.get("scene_audio", [])):
-                print(f"[Pipeline] [RESUME] TTS checkpoint found, skipping TTS generation")
-                audio_data = cached
-                audio_path = audio_data["full_audio"]
-            else:
-                raise ValueError("audio files missing from checkpoint")
-        except Exception as e:
-            print(f"[Pipeline] Checkpoint invalid ({e}), re-generating TTS")
-            audio_data = generate_tts(script, config, safe_name)
-            audio_path = audio_data["full_audio"]
-            with open(checkpoint_path, "w", encoding="utf-8") as f:
-                json.dump(audio_data, f, ensure_ascii=False)
     else:
+        # Per-scene cache lives inside generate_tts (hash of text + emotion + params + voice):
+        # unchanged scenes are reused, edited scenes are regenerated.
         audio_data = generate_tts(script, config, safe_name)
         audio_path = audio_data["full_audio"]
-        with open(checkpoint_path, "w", encoding="utf-8") as f:
-            json.dump(audio_data, f, ensure_ascii=False)
-        print(f"[Pipeline] [OK] TTS checkpoint saved -> {checkpoint_path.name}")
 
     total_duration = audio_data["total_duration_ms"] / 1000
     print(f"[Pipeline] OK - Audio ready: {total_duration:.1f}s total")
@@ -161,8 +143,10 @@ def run_pipeline(
     print(f"\n{'='*60}")
     print(f"  PIPELINE COMPLETE in {elapsed:.1f}s")
     print(f"{'='*60}")
-    print(f"  Landscape: {outputs.get('landscape', 'N/A')}")
-    print(f"  Portrait:  {outputs.get('portrait', 'N/A')}")
+    if outputs.get("landscape"):
+        print(f"  Landscape: {outputs['landscape']}")
+    if outputs.get("portrait"):
+        print(f"  Portrait:  {outputs['portrait']}")
     print(f"  Script:    {script_path}")
     print(f"  Audio:     {audio_path}")
     print(f"  Subtitles: {srt_path}")

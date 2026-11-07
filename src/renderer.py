@@ -4,13 +4,14 @@ Pillow compositor + FFmpeg encoder
 Renders scene-by-scene frames and produces final MP4 (landscape + portrait)
 """
 
+import functools
 import math
 import os
 import random
 import re
-import shutil
 import subprocess
 import yaml
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
@@ -27,10 +28,15 @@ def load_config() -> dict:
 
 # ─── Font Loading ────────────────────────────────────────────────────────────
 
+@functools.lru_cache(maxsize=32)
+def _load_font_cached(path_str: str, size: int):
+    return ImageFont.truetype(path_str, size)
+
+
 def load_font(config: dict, size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     font_path = BASE_DIR / config["subtitle"]["font"]
     if font_path.exists():
-        return ImageFont.truetype(str(font_path), size)
+        return _load_font_cached(str(font_path), size)
     # Fallback: try system fonts
     fallbacks = [
         "C:/Windows/Fonts/Arial.ttf",
@@ -39,7 +45,7 @@ def load_font(config: dict, size: int) -> ImageFont.FreeTypeFont | ImageFont.Ima
     ]
     for fb in fallbacks:
         if Path(fb).exists():
-            return ImageFont.truetype(fb, size)
+            return _load_font_cached(fb, size)
     return ImageFont.load_default()
 
 
@@ -105,9 +111,13 @@ def composite_frame(
     canvas_h: int,
     char_alpha: float = 1.0,
     char_x_offset: int = 0,
+    inplace: bool = False,
 ) -> Image.Image:
-    """Composite character onto background with positioning."""
-    frame = bg.copy().convert("RGBA")
+    """Composite character onto background with positioning.
+    inplace=True pastes straight onto `bg` (only safe when bg is a throw-away frame)."""
+    frame = bg if inplace else bg.copy()
+    if frame.mode != "RGB":
+        frame = frame.convert("RGB")
 
     # Character x position
     if position == "center":
@@ -130,33 +140,22 @@ def composite_frame(
         char = Image.merge("RGBA", (r, g, b, a))
 
     frame.paste(char, (char_x, char_y), char)
-    return frame.convert("RGB")
+    return frame
 
 
 # ─── Subtitle Rendering ───────────────────────────────────────────────────────
 
-def draw_subtitle(
-    frame: Image.Image,
-    text: str,
-    config: dict,
-    is_landscape: bool,
-    font: ImageFont.FreeTypeFont,
-    emotion: str = "neutral",
-) -> Image.Image:
-    if not text.strip():
-        return frame
+_SUB_CACHE: dict = {}
 
+
+def _build_subtitle_overlay(text, config, is_landscape, emotion, W, H, font, active_idx=-1):
+    """Render one subtitle chunk to a small RGBA overlay. Returns (overlay, (x, y))."""
     sub_cfg = config["subtitle"]
     emotion_styles = sub_cfg.get("emotion_styles", {})
-
-    # Get emotion style, fallback to neutral
     style = emotion_styles.get(emotion, emotion_styles.get("neutral", {}))
     scale = style.get("scale", 1.0)
     text_color = tuple(style.get("text_color", sub_cfg["text_color"]))
-    bg_color_raw = style.get("bg_color", sub_cfg["bg_color"])
-
-    draw = ImageDraw.Draw(frame)
-    W, H = frame.size
+    bg_color = tuple(style.get("bg_color", sub_cfg["bg_color"]))
 
     y_ratio = sub_cfg["landscape_y_ratio"] if is_landscape else sub_cfg["portrait_y_ratio"]
     pad_x = sub_cfg["padding_x"]
@@ -165,18 +164,13 @@ def draw_subtitle(
     outline_color = tuple(sub_cfg["outline_color"])
     radius = sub_cfg["border_radius"]
 
-    # Scale font for emotion
     base_size = sub_cfg[f"font_size_{'landscape' if is_landscape else 'portrait'}"]
     actual_size = max(24, int(base_size * scale))
-    if actual_size != base_size:
-        scaled_font = load_font(config, actual_size)
-    else:
-        scaled_font = font
+    scaled_font = load_font(config, actual_size) if actual_size != base_size else font
 
     lines = text.split("\n")
-
-    # Calculate text dimensions
-    line_bboxes = [draw.textbbox((0, 0), line, font=scaled_font) for line in lines]
+    measure = ImageDraw.Draw(Image.new("L", (1, 1)))
+    line_bboxes = [measure.textbbox((0, 0), line, font=scaled_font) for line in lines]
     line_heights = [bb[3] - bb[1] for bb in line_bboxes]
     line_widths = [bb[2] - bb[0] for bb in line_bboxes]
     line_spacing = 8
@@ -189,46 +183,74 @@ def draw_subtitle(
     box_x = (W - box_w) // 2
     box_y = int(H * y_ratio) - box_h
 
-    # Emotion: add left accent bar for non-neutral
+    # Left accent bar for emphasis emotions
     accent_w = 5 if emotion not in ("neutral", "happy") else 0
 
-    # Draw rounded rect background
-    bg_color = tuple(bg_color_raw)
-    overlay = Image.new("RGBA", frame.size, (0, 0, 0, 0))
-    ov_draw = ImageDraw.Draw(overlay)
-    ov_draw.rounded_rectangle(
-        [box_x - accent_w, box_y, box_x + box_w + accent_w, box_y + box_h],
-        radius=radius,
-        fill=bg_color,
-    )
-    # Accent bar (colored left stripe for emphasis emotions)
+    ov_x = box_x - accent_w
+    ov_w = box_w + 2 * accent_w + 1
+    ov_h = box_h + 1
+
+    overlay = Image.new("RGBA", (ov_w, ov_h), (0, 0, 0, 0))
+    od = ImageDraw.Draw(overlay)
+    od.rounded_rectangle([0, 0, ov_w - 1, ov_h - 1], radius=radius, fill=bg_color)
     if accent_w > 0:
-        accent_color = (*text_color[:3], 220)
-        ov_draw.rounded_rectangle(
-            [box_x - accent_w, box_y, box_x - 1, box_y + box_h],
-            radius=4,
-            fill=accent_color,
-        )
-    frame = Image.alpha_composite(frame.convert("RGBA"), overlay).convert("RGB")
-    draw = ImageDraw.Draw(frame)
+        od.rounded_rectangle([0, 0, accent_w - 1, ov_h - 1], radius=4, fill=(*text_color[:3], 220))
 
-    # Draw each line of text
-    current_y = box_y + pad_y
+    text_layer = Image.new("RGBA", (ov_w, ov_h), (0, 0, 0, 0))
+    td = ImageDraw.Draw(text_layer)
+    # Karaoke: the word being spoken gets the active colour. If that colour is too close to
+    # the emotion's own text colour (e.g. yellow on "happy"), the active word goes white instead.
+    active_color = text_color
+    if active_idx >= 0:
+        kcfg = sub_cfg.get("karaoke", {}) or {}
+        active_color = tuple(kcfg.get("active_color", [255, 225, 70, 255]))
+        if sum(abs(a - b) for a, b in zip(active_color[:3], text_color[:3])) < 130:
+            active_color = (255, 255, 255, 255)
+
+    current_y = pad_y
+    word_no = 0
     for i, line in enumerate(lines):
-        lw = line_widths[i] if i < len(line_widths) else 0
-        lx = (W - lw) // 2
-
-        # Outline
-        for ox in range(-outline_w, outline_w + 1):
-            for oy in range(-outline_w, outline_w + 1):
-                if ox == 0 and oy == 0:
-                    continue
-                draw.text((lx + ox, current_y + oy), line, font=scaled_font, fill=outline_color)
-
-        # Main text
-        draw.text((lx, current_y), line, font=scaled_font, fill=text_color)
+        lx = (W - line_widths[i]) // 2 - ov_x
+        if active_idx < 0:
+            td.text((lx, current_y), line, font=scaled_font, fill=text_color,
+                    stroke_width=outline_w, stroke_fill=outline_color)
+        else:
+            line_words = line.split(" ")
+            for k, wd in enumerate(line_words):
+                prefix = " ".join(line_words[:k]) + (" " if k else "")
+                wx = lx + scaled_font.getlength(prefix)
+                td.text((wx, current_y), wd, font=scaled_font,
+                        fill=active_color if word_no == active_idx else text_color,
+                        stroke_width=outline_w, stroke_fill=outline_color)
+                word_no += 1
         current_y += line_heights[i] + line_spacing
 
+    overlay = Image.alpha_composite(overlay, text_layer)
+    return overlay, (ov_x, box_y)
+
+
+def draw_subtitle(
+    frame: Image.Image,
+    text: str,
+    config: dict,
+    is_landscape: bool,
+    font: ImageFont.FreeTypeFont,
+    emotion: str = "neutral",
+    active_idx: int = -1,
+) -> Image.Image:
+    """Paste a (cached) subtitle overlay onto `frame` in place and return it."""
+    if not text.strip():
+        return frame
+    key = (text, emotion, is_landscape, frame.size, active_idx)
+    entry = _SUB_CACHE.get(key)
+    if entry is None:
+        W, H = frame.size
+        entry = _build_subtitle_overlay(text, config, is_landscape, emotion, W, H, font, active_idx)
+        _SUB_CACHE[key] = entry
+    overlay, pos = entry
+    if frame.mode != "RGB":
+        frame = frame.convert("RGB")
+    frame.paste(overlay, pos, overlay)
     return frame
 
 
@@ -242,7 +264,7 @@ def ken_burns_crop(bg: Image.Image, progress: float, canvas_w: int, canvas_h: in
     x_off = (bg.width - src_w) // 2
     y_off = (bg.height - src_h) // 2
     cropped = bg.crop((x_off, y_off, x_off + src_w, y_off + src_h))
-    return cropped.resize((canvas_w, canvas_h), Image.LANCZOS)
+    return cropped.resize((canvas_w, canvas_h), Image.BILINEAR)
 
 
 # ─── Transition Frames ────────────────────────────────────────────────────────
@@ -270,7 +292,7 @@ def render_video(
     if config is None:
         config = load_config()
 
-    from transcriber import parse_srt
+    from transcriber import load_subtitles
 
     if safe_name is None:
         safe_name = re.sub(r"[^\w\s-]", "", script["title"]).strip().replace(" ", "_").lower()[:60]
@@ -282,7 +304,8 @@ def render_video(
     blink_max = config["character"]["blink_interval_max"]
     blink_hold_frames = 3  # ~0.1s blink
 
-    subtitles = parse_srt(srt_path)
+    subtitles = load_subtitles(srt_path)
+    karaoke = bool((config["subtitle"].get("karaoke", {}) or {}).get("enabled", True))
 
     outputs = {}
 
@@ -295,9 +318,6 @@ def render_video(
         is_landscape = orientation == "landscape"
         font_size = config["subtitle"][f"font_size_{orientation}"]
         font = load_font(config, font_size)
-
-        frames_dir = BASE_DIR / "output" / orientation / "frames" / safe_name
-        frames_dir.mkdir(parents=True, exist_ok=True)
 
         print(f"\n[Renderer] Rendering {orientation} ({W}×{H}) -- {len(script['scenes'])} scenes")
 
@@ -443,11 +463,8 @@ def render_video(
                     if (assets["blink_char"] and local_f in assets["blink_events"])
                     else char
                 )
-                return composite_frame(kb_bg, active_char, assets["position"], W, H, char_alpha, 0)
-            return kb_bg.copy()
-
-        def save_frame(img: Image.Image, idx: int) -> None:
-            img.save(str(frames_dir / f"frame_{idx:06d}.jpg"), "JPEG", quality=92)
+                return composite_frame(kb_bg, active_char, assets["position"], W, H, char_alpha, 0, inplace=True)
+            return kb_bg
 
         # Crossfade length per boundary, capped so it never outruns either neighboring scene
         n_scenes = len(scene_assets)
@@ -456,104 +473,163 @@ def render_video(
             for i in range(n_scenes - 1)
         ]
 
-        # ── Pass 2: write frames -- every scene keeps its FULL frame count (stays in sync
-        # with the audio); only the pixel content of each scene's tail is replaced by a
-        # crossfade into a preview of the next scene, instead of fading to black. ──
-        for scene_idx, assets in enumerate(scene_assets):
-            total = assets["total_scene_frames"]
-            has_next = scene_idx < n_scenes - 1
-            tfrm = boundary_trans[scene_idx] if has_next else 0
-            next_assets = scene_assets[scene_idx + 1] if has_next else None
-            # The dissolve target is next scene's own opening frame (local_f=0), held static
-            # for the whole crossfade -- NOT an animating preview. If it animated here too,
-            # scene B's own loop would then restart its Ken Burns zoom / character fade-in
-            # from scratch right after, which plays back as a visible "rewind" at the cut.
-            # Dissolving into a static frame 0 means the handoff into scene B's real frame 0
-            # is seamless (it's the same image the blend was already converging toward).
-            next_first_frame = render_base_frame(next_assets, 0) if has_next and tfrm > 0 else None
+        def make_frame(assets, tfrm, has_next, next_first_frame, total, local_f):
+            """One finished frame: base + crossfade (tail of scene) + subtitle. Thread-safe."""
+            frame = render_base_frame(assets, local_f)
+            # Crossfade into the next scene during this scene's last `tfrm` frames --
+            # no black flash, and total frame count (= audio duration) is untouched.
+            if has_next and tfrm > 0 and local_f >= total - tfrm:
+                t = local_f - (total - tfrm)           # 0 .. tfrm-1
+                frame = fade_transition(frame, next_first_frame, (t + 1) / tfrm)
+            current_time_ms = assets["scene_offset_ms"] + int((local_f / fps) * 1000)
+            entry = get_subtitle_entry_at(subtitles, current_time_ms)
+            if entry and entry["text"]:
+                active = _active_word_index(entry, current_time_ms) if karaoke else -1
+                frame = draw_subtitle(frame, entry["text"], config, is_landscape, font,
+                                      assets["subtitle_emotion"], active)
+            return frame
 
-            for local_f in range(total):
-                frame = render_base_frame(assets, local_f)
+        workers = int(config["video"].get("render_threads", 0) or 0) or min(8, os.cpu_count() or 1)
+        out_path = BASE_DIR / "output" / orientation / f"{safe_name}.mp4"
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        _SUB_CACHE.clear()
+        print(f"[Renderer] Encoder: {config['video'].get('encoder', 'libx264')} | render threads: {workers}")
+        pipe = _FFmpegPipe(W, H, fps, audio_data["full_audio"], out_path, config)
 
-                # Crossfade into the next scene during this scene's last `tfrm` frames --
-                # no black flash, and total frame count (= audio duration) is untouched.
-                if has_next and tfrm > 0 and local_f >= total - tfrm:
-                    t = local_f - (total - tfrm)       # 0 .. tfrm-1
-                    blend_amt = (t + 1) / tfrm           # ramps smoothly toward the next scene
-                    frame = fade_transition(frame, next_first_frame, blend_amt)
+        # ── Pass 2: render frames (in order) and stream them straight into FFmpeg --
+        # no JPEG files on disk. Every scene keeps its FULL frame count (stays in sync with
+        # the audio); only the pixel content of each scene's tail is replaced by a crossfade.
+        # The dissolve target is the next scene's own opening frame (local_f=0), held static,
+        # so the handoff into scene B's real frame 0 is seamless (no "rewind" at the cut).
+        try:
+            with ThreadPoolExecutor(max_workers=workers) as pool:
+                batch = max(8, workers * 4)   # bounded window keeps memory flat
+                for scene_idx, assets in enumerate(scene_assets):
+                    total = assets["total_scene_frames"]
+                    has_next = scene_idx < n_scenes - 1
+                    tfrm = boundary_trans[scene_idx] if has_next else 0
+                    next_first_frame = (
+                        render_base_frame(scene_assets[scene_idx + 1], 0) if has_next and tfrm > 0 else None
+                    )
+                    render = functools.partial(make_frame, assets, tfrm, has_next, next_first_frame, total)
 
-                current_time_ms = assets["scene_offset_ms"] + int((local_f / fps) * 1000)
-                subtitle_text = get_subtitle_at(subtitles, current_time_ms)
-                if subtitle_text:
-                    frame = draw_subtitle(frame, subtitle_text, config, is_landscape, font, assets["subtitle_emotion"])
-                save_frame(frame, global_frame_idx)
-                global_frame_idx += 1
+                    for start in range(0, total, batch):
+                        idxs = range(start, min(start + batch, total))
+                        frames = pool.map(render, idxs) if workers > 1 else map(render, idxs)
+                        for img in frames:
+                            pipe.write(img)
+                            global_frame_idx += 1
 
-                if local_f % (fps * 5) == 0:
-                    print(f"[Renderer]   {local_f}/{total} frames done")
-
-            if progress_callback:
-                pct = 33 + int((scene_idx + 1) / n_scenes * 57)
-                progress_callback(pct, f"Scene {scene_idx + 1}/{n_scenes} -- {global_frame_idx} frames")
+                    print(f"[Renderer]   scene {scene_idx + 1}/{n_scenes}: {global_frame_idx} frames so far")
+                    if progress_callback:
+                        pct = 33 + int((scene_idx + 1) / n_scenes * 57)
+                        progress_callback(pct, f"Scene {scene_idx + 1}/{n_scenes} -- {global_frame_idx} frames")
+            pipe.close()
+        except BaseException:
+            pipe.abort()
+            raise
 
         print(f"[Renderer] Total frames rendered: {global_frame_idx}")
-
-        # FFmpeg: frames + audio -> MP4
-        out_path = BASE_DIR / "output" / orientation / f"{safe_name}.mp4"
-        _ffmpeg_encode(frames_dir, audio_data["full_audio"], out_path, fps, srt_path, config)
         outputs[orientation] = str(out_path)
         print(f"[Renderer] OK {orientation} video -> {out_path}")
-
-        # Cleanup frames
-        shutil.rmtree(frames_dir)
 
     return outputs
 
 
-def get_subtitle_at(subtitles: list[dict], time_ms: int) -> str:
+def get_subtitle_entry_at(subtitles: list[dict], time_ms: int) -> dict | None:
     for sub in subtitles:
         if sub["start_ms"] <= time_ms <= sub["end_ms"]:
-            return sub["text"]
-    return ""
+            return sub
+    return None
 
 
-def _ffmpeg_encode(
-    frames_dir: Path,
-    audio_path: str,
-    out_path: Path,
-    fps: int,
-    srt_path: str,
-    config: dict,
-) -> None:
-    """Use FFmpeg to encode frames + audio into MP4."""
-    frames_pattern = str(frames_dir / "frame_%06d.jpg")
-
-    cmd = [
-        "ffmpeg", "-y",
-        "-framerate", str(fps),
-        "-i", frames_pattern,
-        "-i", audio_path,
-        "-c:v", "libx264",
-        "-preset", "fast",
-        "-crf", "18",
-        "-pix_fmt", "yuv420p",
-        "-c:a", "aac",
-        "-b:a", "192k",
-        # Normalize to 44100Hz stereo -- prevents noise when concat with asset clips
-        "-ar", "44100",
-        "-ac", "2",
-        "-shortest",
-        "-movflags", "+faststart",
-        str(out_path),
-    ]
+def get_subtitle_at(subtitles: list[dict], time_ms: int) -> str:
+    entry = get_subtitle_entry_at(subtitles, time_ms)
+    return entry["text"] if entry else ""
 
 
-    print(f"[FFmpeg] Encoding: {out_path.name}")
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        print(f"[FFmpeg] STDERR:\n{result.stderr}")
-        raise RuntimeError(f"FFmpeg encoding failed: {result.returncode}")
-    print(f"[FFmpeg] Encoding complete: {out_path}")
+def _active_word_index(entry: dict, time_ms: int) -> int:
+    """Index of the word being spoken at time_ms (-1 if this entry has no word timings)."""
+    words = entry.get("words")
+    if not words:
+        return -1
+    idx = 0
+    for k, w in enumerate(words):
+        if w["s"] <= time_ms:
+            idx = k
+        else:
+            break
+    return idx
+
+
+class _FFmpegPipe:
+    """Stream raw RGB frames into one FFmpeg process (no temp JPEG files, one encode pass)."""
+
+    def __init__(self, W: int, H: int, fps: int, audio_path: str, out_path: Path, config: dict):
+        encoder = config.get("video", {}).get("encoder", "libx264")
+        if encoder == "h264_nvenc":
+            vargs = ["-c:v", "h264_nvenc", "-preset", "p5", "-cq", "20", "-b:v", "0"]
+        else:
+            vargs = ["-c:v", "libx264", "-preset", "fast", "-crf", "18"]
+
+        cmd = [
+            "ffmpeg", "-y",
+            "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-framerate", str(fps),
+            "-i", "-",
+            "-i", str(audio_path),
+            *vargs,
+            "-pix_fmt", "yuv420p",
+            "-c:a", "aac", "-b:a", "192k",
+            # Normalize to 44100Hz stereo -- prevents noise when concat with asset clips
+            "-ar", "44100", "-ac", "2",
+            "-shortest",
+            "-movflags", "+faststart",
+            str(out_path),
+        ]
+        self.out_path = out_path
+        self.log_path = out_path.with_suffix(".ffmpeg.log")
+        self._log = open(self.log_path, "wb")
+        print(f"[FFmpeg] Encoding (streaming): {out_path.name}")
+        self.proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=self._log)
+
+    def write(self, img: Image.Image) -> None:
+        if img.mode != "RGB":
+            img = img.convert("RGB")
+        try:
+            self.proc.stdin.write(img.tobytes())
+        except (BrokenPipeError, OSError):
+            self._fail("FFmpeg closed its input early")
+
+    def close(self) -> None:
+        try:
+            self.proc.stdin.close()
+        except OSError:
+            pass
+        rc = self.proc.wait()
+        self._log.close()
+        if rc != 0:
+            self._fail(f"FFmpeg encoding failed: {rc}")
+        self.log_path.unlink(missing_ok=True)
+        print(f"[FFmpeg] Encoding complete: {self.out_path}")
+
+    def abort(self) -> None:
+        try:
+            self.proc.kill()
+        except Exception:
+            pass
+        try:
+            self._log.close()
+        except Exception:
+            pass
+
+    def _fail(self, msg: str):
+        self.abort()
+        try:
+            tail = self.log_path.read_text(errors="replace")[-2000:]
+        except Exception:
+            tail = ""
+        print(f"[FFmpeg] STDERR (tail):\n{tail}")
+        raise RuntimeError(msg)
 
 
 if __name__ == "__main__":

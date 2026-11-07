@@ -18,7 +18,8 @@ d:\animasi\
 ├── src/
 │   ├── script_generator.py   # Step 1: GPT-4o → script JSON
 │   ├── tts_generator.py      # Step 2: ChatterboxTurboTTS → audio MP3 per scene
-│   ├── transcriber.py        # Step 3: script + TTS timing → SRT subtitle
+│   ├── transcriber.py        # Step 3: script + TTS timing → SRT (+ .words.json untuk karaoke)
+│   ├── aligner.py            # Word-level timing via faster-whisper lokal (cache model di HF_HOME / D:)
 │   ├── scene_generator.py    # (Opsional) Gemini Imagen → custom scene image
 │   ├── renderer.py           # Step 4: Pillow compositor + FFmpeg → MP4
 │   └── pipeline.py           # CLI pipeline orchestrator (dipanggil main.py)
@@ -170,8 +171,8 @@ text = re.sub(r"\s*(?:--|[–—;])\s*", " ... ", text)
 | Hal | Detail |
 |-----|--------|
 | **Model cache** | `_model` adalah global — load sekali per process, pakai untuk semua request |
-| **Checkpoint** | Disimpan di `audio/{safe_name}_checkpoint.json`. Jika file audio masih ada, TTS di-SKIP |
-| **Hapus checkpoint** | `Remove-Item "d:\animasi\audio\*_checkpoint.json"` untuk force re-generate |
+| **Cache per scene** | `audio/cache/{hash}.wav`. Hash = teks + tts_emotion + param emosi + voice reference. Edit 1 scene = hanya scene itu yang di-generate ulang; model tidak di-load kalau semua scene sudah ter-cache |
+| **Force re-generate** | Set `tts.use_cache: false` di config, atau hapus folder `audio/cache/` |
 | **top_k < 200** | Menghasilkan noise/artifacts — jangan turunkan di bawah 200 |
 | **repetition_penalty > 1.2** | Menghasilkan noise — jangan naikkan di atas 1.2 |
 | **voice_sample.wav** | Di `sound reference/voice_sample.wav` — mono, 44100 Hz direkomendasikan |
@@ -184,7 +185,7 @@ text = re.sub(r"\s*(?:--|[–—;])\s*", " ... ", text)
 | **Ken Burns** | Slow zoom-in 0-10% per scene, berjalan via `ken_burns_crop()` |
 | **Blink system** | Pose dengan `has_blink: true` di config punya `blink_pair` — frame PNG terpisah untuk mata menutup |
 | **Crossfade** | Antar scene dissolve ke frame pertama scene berikutnya (BUKAN fade to black) |
-| **Frame cleanup** | Folder `output/portrait/frames/{safe_name}/` otomatis dihapus setelah encode |
+| **Frame streaming** | Frame tidak lagi disimpan ke disk; dikirim langsung ke FFmpeg lewat stdin (`_FFmpegPipe`). Kalau encode gagal, log ada di `output/portrait/{safe_name}.ffmpeg.log` |
 | **Audio sync** | Durasi setiap scene diambil dari `audio_data["scene_audio"][i]["duration_ms"]` |
 | **FFmpeg output** | `-ar 44100 -ac 2` dipaksa untuk mencegah noise saat asset splice |
 
@@ -206,6 +207,13 @@ text = re.sub(r"\s*(?:--|[–—;])\s*", " ... ", text)
 | **Pose validation** | Jika LLM pakai pose tidak valid → fallback ke `"halfbody explaining"` |
 | **Background validation** | Jika LLM pakai bg tidak valid → fallback ke `"kampus"` |
 | **`generated_scene`** | Field di scene JSON — jika `null` pakai pose biasa, jika ada string → trigger Gemini |
+
+### `aligner.py` / word-sync — Catatan
+- Install (di dalam venv chatterbox-env, pip cache ke D:): `pip install faster-whisper --cache-dir "D:\pip_cache"`. Cek dulu dengan `pip install --dry-run faster-whisper` supaya torch/numpy/transformers tidak ikut berubah.
+- Model Whisper diunduh ke `HF_HOME/hub` (D:). Kalau cache terdeteksi di C:, aligner menolak mengunduh dan subtitle fallback ke timing proporsional.
+- `whisper_local.device: cpu` (default) aman dan tidak rebutan VRAM dengan Chatterbox. `cuda` butuh cuBLAS/cuDNN dan otomatis fallback ke cpu kalau gagal.
+- Matikan: `subtitle.word_sync: false` (timing lama) atau `subtitle.karaoke.enabled: false` (timing baru tanpa highlight).
+- Tes cepat tanpa pipeline: `python src/aligner.py audio/cache/<scene>.wav "teks narasi scene itu"`.
 
 ### `transcriber.py` — Gotchas
 
@@ -274,9 +282,9 @@ text = re.sub(r"\s*(?:--|[–—;])\s*", " ... ", text)
 D:\animasi\TTS\chatterbox-env\Scripts\python.exe app.py
 ```
 
-### Force re-generate TTS (hapus checkpoint)
+### Force re-generate TTS
 ```powershell
-Remove-Item "D:\animasi\audio\*_checkpoint.json" -Force
+Remove-Item "D:\animasi\audio\cache\*" -Force   # atau set tts.use_cache: false
 ```
 
 ### Test TTS langsung (bypass pipeline)
@@ -334,6 +342,9 @@ D:\animasi\TTS\chatterbox-env\Scripts\python.exe main.py "topik video"
 
 | Tanggal | Perubahan |
 |---------|-----------|
+| Nov 2026 | **v2.3 hapus dead air**: audio tiap scene dirapikan otomatis (silence awal/akhir dipangkas, jeda panjang diperpendek ke `tts.max_pause_ms`); file hasilnya `audio/cache/<hash>.t<tag>.wav` dan dipakai untuk durasi scene, subtitle, dan alignment; `trim_silence: false` untuk mematikan; `python src/audio_check.py` untuk melihat jeda kosong di WAV |
+| Nov 2026 | **v2.2 subtitle word-level**: `src/aligner.py` (faster-whisper lokal, model di-cache ke HF_HOME, ditolak kalau jatuh ke C:); subtitle = teks script dengan timing asli dari Whisper; chunk mengikuti kalimat (3-7 kata, 1 baris diutamakan); highlight karaoke kata yang sedang diucapkan; hasil alignment di-cache per scene (`audio/cache/*.words.<model>.json`); gagal/tidak terinstall = otomatis fallback ke timing proporsional |
+| Nov 2026 | **v2.1 performa**: cache TTS per scene (hash) + audio WAV (tanpa MP3 bolak-balik); renderer: subtitle di-cache + `stroke_width`, Ken Burns BILINEAR, frame dikirim langsung ke FFmpeg (tanpa JPEG), render multi-thread (`video.render_threads`), opsi `video.encoder: h264_nvenc`; hapus checkpoint JSON yang bisa stale |
 | Nov 2026 | **Fix bug regex `preprocess_narration`** — `[--–]` diganti `(?:\|\|[–—;])` — dubbing via UI sekarang normal |
 | Nov 2026 | **Thread-safe model loading** — tambah `threading.Lock()` di `_load_model()` |
 | Nov 2026 | Subtitle system diganti dari Whisper → script-based (`generate_srt_from_script`) |

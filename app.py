@@ -255,29 +255,15 @@ def _run_pipeline_thread(job_id: str, script: dict, topic: str, safe_name: str, 
 
     cfg = get_config()
     jobs[job_id]["status"] = "running"
-    checkpoint_path = BASE_DIR / "audio" / f"{safe_name}_checkpoint.json"
 
     try:
         # ── Step 1: TTS ───────────────────────────────────────────────────────
         emit(job_id, "step", {"step": 1, "total": 3, "label": "Generating voice-over (Chatterbox TTS)..."})
         emit(job_id, "progress", {"pct": 3, "detail": "Starting TTS..."})
 
-        # Load from checkpoint if audio files still on disk
-        audio_data = None
-        if checkpoint_path.exists():
-            try:
-                with open(checkpoint_path) as f:
-                    cached = json.load(f)
-                if all(Path(sa["path"]).exists() for sa in cached.get("scene_audio", [])):
-                    emit(job_id, "progress", {"pct": 5, "detail": "Found existing TTS audio, resuming..."})
-                    audio_data = cached
-            except Exception:
-                pass
-
-        if audio_data is None:
-            audio_data = generate_tts(script, cfg, safe_name)
-            with open(checkpoint_path, "w", encoding="utf-8") as f:
-                json.dump(audio_data, f, ensure_ascii=False)
+        # Per-scene cache is handled inside generate_tts (hash of text + emotion + params + voice):
+        # unchanged scenes are reused, edited scenes are regenerated.
+        audio_data = generate_tts(script, cfg, safe_name)
 
         total_dur = audio_data["total_duration_ms"] / 1000
         emit(job_id, "step_done", {"step": 1, "label": f"Voice-over ready ({total_dur:.1f}s)"})
